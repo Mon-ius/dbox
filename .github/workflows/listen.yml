@@ -1,0 +1,105 @@
+name: listen
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  
+  workflow_dispatch:
+
+jobs:
+  check-for-releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v3
+
+      - name: Restore previous release version
+        id: cache-release
+        uses: actions/cache@v3
+        with:
+          path: ~/.upstream-cache
+          key: upstream-release-${{ runner.os }}
+
+      - name: Initialize cache if needed
+        if: steps.cache-release.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.upstream-cache
+          echo "initial" > ~/.upstream-cache/release-version
+
+      - name: Read previous release
+        id: prev-release
+        run: |
+          PREVIOUS_VERSION=$(cat ~/.upstream-cache/release-version)
+          echo "previous=$PREVIOUS_VERSION" >> $GITHUB_OUTPUT
+          echo "Previous release version: $PREVIOUS_VERSION"
+
+      - name: Check for upstream releases
+        id: check-releases
+        run: |
+          # Get the latest release information using the secret for the upstream repository
+          RELEASE_INFO=$(curl -s https://api.github.com/repos/${{ secrets.UPSTREAM_REPO }}/releases/latest)
+          
+          # Extract version tag and other useful information
+          LATEST_VERSION=$(echo "$RELEASE_INFO" | jq -r .tag_name)
+          RELEASE_NAME=$(echo "$RELEASE_INFO" | jq -r .name)
+          RELEASE_URL=$(echo "$RELEASE_INFO" | jq -r .html_url)
+          RELEASE_DATE=$(echo "$RELEASE_INFO" | jq -r .published_at)
+          
+          echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+          echo "url=$RELEASE_URL" >> $GITHUB_OUTPUT
+          echo "date=$RELEASE_DATE" >> $GITHUB_OUTPUT
+          
+          echo "Latest release: $LATEST_VERSION ($RELEASE_NAME)"
+          echo "Released on: $RELEASE_DATE"
+          
+          # Check if there's a new release
+          if [ "$LATEST_VERSION" != "${{ steps.prev-release.outputs.previous }}" ]; then
+            echo "New release detected in ${{ secrets.UPSTREAM_REPO }} repository!"
+            echo "updated=true" >> $GITHUB_OUTPUT
+            
+            # Update the cached release version
+            echo "$LATEST_VERSION" > ~/.upstream-cache/release-version
+          else
+            echo "No new releases detected in ${{ secrets.UPSTREAM_REPO }} repository."
+            echo "updated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log release details
+        if: steps.check-releases.outputs.updated == 'true'
+        run: |
+          # Log details about the new release
+          echo "New release detected: ${{ steps.check-releases.outputs.latest }}"
+          echo "Release name: ${{ steps.check-releases.outputs.name }}"
+          echo "Release URL: ${{ steps.check-releases.outputs.url }}"
+          echo "Released on: ${{ steps.check-releases.outputs.date }}"
+
+      - name: Configure Git
+        if: steps.check-releases.outputs.updated == 'true'
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Add or update upstream submodule
+        if: steps.check-releases.outputs.updated == 'true'
+        run: |
+          echo "Processing new release from ${{ secrets.UPSTREAM_REPO }}"
+          echo "New version: ${{ steps.check-releases.outputs.latest }}"
+          echo "Previous version: ${{ steps.prev-release.outputs.previous }}"
+          
+          # Extract owner and repo from the UPSTREAM_REPO secret
+          IFS='/' read -r OWNER REPO <<< "${{ secrets.UPSTREAM_REPO }}"
+          
+          # Check if submodule already exists
+          if [ -f ".gitmodules" ] && grep -q "path = $REPO" .gitmodules; then
+            echo "Updating existing $REPO submodule..."
+            git submodule update --remote --depth 1 $REPO
+          else
+            echo "Adding $REPO as a new submodule..."
+            git submodule add --depth 1 -b main https://github.com/${{ secrets.UPSTREAM_REPO }}.git $REPO
+          fi
+          
+          # Commit the changes
+          git add .gitmodules $REPO
+          git commit -m "Update $REPO submodule to version ${{ steps.check-releases.outputs.latest }}"
+          git push
