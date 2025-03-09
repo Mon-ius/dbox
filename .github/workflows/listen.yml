@@ -90,7 +90,7 @@ jobs:
 
           rm -rf $REPO
           git clone --depth 1 -b main https://github.com/${{ secrets.UPSTREAM_REPO }}.git $REPO
-
+          rm -rf $REPO/.git
           git add $REPO
           git commit -m "Bump $REPO submodule to version ${{ steps.check-releases.outputs.latest }}"
           git push
