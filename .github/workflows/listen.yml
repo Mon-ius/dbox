@@ -15,7 +15,7 @@ jobs:
 
       - name: Restore previous release version
         id: cache-release
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.upstream-cache
           key: upstream-release-${{ runner.os }}
