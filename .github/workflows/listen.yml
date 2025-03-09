@@ -54,7 +54,6 @@ jobs:
           echo "name=$RELEASE_NAME" >> $GITHUB_OUTPUT
           echo "url=$RELEASE_URL" >> $GITHUB_OUTPUT
           echo "date=$RELEASE_DATE" >> $GITHUB_OUTPUT
-          
           echo "Latest release: $LATEST_VERSION ($RELEASE_NAME)"
           echo "Released on: $RELEASE_DATE"
 
