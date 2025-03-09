@@ -81,23 +81,18 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
 
-      - name: Add or update upstream submodule
+      - name: Retrieve upstream repo source code
         if: steps.check-releases.outputs.updated == 'true'
         run: |
           echo "Processing new release from ${{ secrets.UPSTREAM_REPO }}"
           echo "New version: ${{ steps.check-releases.outputs.latest }}"
           echo "Previous version: ${{ steps.prev-release.outputs.previous }}"
 
-          if [ -f ".gitmodules" ] && grep -q "path = $REPO" .gitmodules; then
-            echo "Updating existing $REPO submodule..."
-            git submodule update --remote --depth 1 $REPO
-          else
-            echo "Adding $REPO as a new submodule..."
-            git submodule add --depth 1 -b main https://github.com/${{ secrets.UPSTREAM_REPO }}.git $REPO
-          fi
+          rm -rf $REPO
+          git clone --depth 1 -b main https://github.com/${{ secrets.UPSTREAM_REPO }}.git $REPO
 
-          git add .gitmodules $REPO
-          git commit -m "Update $REPO submodule to version ${{ steps.check-releases.outputs.latest }}"
+          git add $REPO
+          git commit -m "Bump $REPO submodule to version ${{ steps.check-releases.outputs.latest }}"
           git push
         env:
           REPO: upstream
