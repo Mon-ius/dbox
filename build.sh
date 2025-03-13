@@ -1,9 +1,10 @@
 #!/bin/dash
 
+go install golang.org/x/mobile/cmd/gomobile@latest
+go install golang.org/x/mobile/cmd/gobind@latest
 go mod init dbox && go mod tidy
 
 ARCH="amd64"
-LIB_NAME="libdbox.so"
 OUTPUT="build"
 TAGS="with_debug"
 LDFLAGS="-s -w -buildid="
@@ -15,7 +16,18 @@ CGO_ENABLED=1 GOOS=linux GOARCH=$ARCH go build -v \
     -buildvcs=false \
     -ldflags="$LDFLAGS" \
     -tags="$TAGS" \
-    -o "$OUTPUT/$LIB_NAME" \
+    -o "$OUTPUT/libdbox.so" \
+    .
+
+gomobile init 
+CGO_ENABLED=1 GOOS=android GOARCH=arm64 gomobile bind -v \
+    -target android \
+    -androidapi 21 \
+    -javapkg=io.m0nius \
+    -trimpath \
+    -ldflags="$LDFLAGS" \
+    -tags="$TAGS" \
+    -o "$OUTPUT/libdbox.aar" \
     .
 
 cd ..

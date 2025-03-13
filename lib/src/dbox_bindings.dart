@@ -22,34 +22,6 @@ class dbox {
           lookup)
       : _lookup = lookup;
 
-  void PrintDebug(
-    ffi.Pointer<ffi.Char> message,
-  ) {
-    return _PrintDebug(
-      message,
-    );
-  }
-
-  late final _PrintDebugPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>(
-          'PrintDebug');
-  late final _PrintDebug =
-      _PrintDebugPtr.asFunction<void Function(ffi.Pointer<ffi.Char>)>();
-
-  void FreeString(
-    ffi.Pointer<ffi.Char> str,
-  ) {
-    return _FreeString(
-      str,
-    );
-  }
-
-  late final _FreeStringPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>(
-          'FreeString');
-  late final _FreeString =
-      _FreeStringPtr.asFunction<void Function(ffi.Pointer<ffi.Char>)>();
-
   int Add(
     int a,
     int b,
@@ -111,6 +83,34 @@ class dbox {
       _lookup<ffi.NativeFunction<ffi.Void Function()>>('enforce_binding');
   late final _enforce_binding =
       _enforce_bindingPtr.asFunction<void Function()>();
+
+  void PrintDebug(
+    ffi.Pointer<ffi.Char> message,
+  ) {
+    return _PrintDebug(
+      message,
+    );
+  }
+
+  late final _PrintDebugPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>(
+          'PrintDebug');
+  late final _PrintDebug =
+      _PrintDebugPtr.asFunction<void Function(ffi.Pointer<ffi.Char>)>();
+
+  void FreeString(
+    ffi.Pointer<ffi.Char> str,
+  ) {
+    return _FreeString(
+      str,
+    );
+  }
+
+  late final _FreeStringPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>(
+          'FreeString');
+  late final _FreeString =
+      _FreeStringPtr.asFunction<void Function(ffi.Pointer<ffi.Char>)>();
 }
 
 typedef ptrdiff_t = ffi.Long;
