@@ -1,5 +1,6 @@
 .DS_Store
 .vscode
+build
 *.class
 *.log
 *.pyc
@@ -21,7 +22,6 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
 app.*.symbols
 app.*.map.json
 /android/app/debug
