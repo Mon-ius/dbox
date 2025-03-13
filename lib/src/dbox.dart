@@ -1,12 +1,30 @@
+import 'dart:io';
 import 'dart:ffi';
 import 'dbox_bindings.dart';
 
 import 'package:ffi/ffi.dart';
 
+const String _libName = 'dbox';
+
+
 class DoxLibrary {
   final dbox _bindings;
 
-  DoxLibrary(DynamicLibrary library) : _bindings = dbox(library);
+  factory DoxLibrary() {
+    return DoxLibrary.fromDynamicLibrary(_dylib());
+  }
+
+  DoxLibrary.fromDynamicLibrary(DynamicLibrary library) : _bindings = dbox(library);
+
+  static DynamicLibrary _dylib() {
+    final libraryPath = switch (Platform.operatingSystem) {
+      'macos' || 'ios' => 'lib$_libName.framework/lib$_libName',
+      'android' || 'linux' => 'lib$_libName.so',
+      'windows' => '$_libName.dll',
+      _ => throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}'),
+    };
+    return DynamicLibrary.open(libraryPath);
+  }
 
   int add(int a, int b) {
     return _bindings.Add(a, b);
@@ -42,8 +60,7 @@ class DoxLibrary {
 }
 
 void main() {
-  final dylib = DynamicLibrary.open('libdbox.so');
-  final dboxLib = DoxLibrary(dylib);
+  final dboxLib = DoxLibrary();
   
   print('Add(5, 7) = ${dboxLib.add(5, 7)}');
   print('Multiply(5, 7) = ${dboxLib.multiply(5, 7)}');
