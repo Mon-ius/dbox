@@ -96,7 +96,7 @@ jobs:
             echo "No changes detected in $REPO despite version change. Skipping commit."
           else
             echo "Changes detected in $REPO. Creating commit..."
-            git commit -m "Bump $REPO submodule to version ${{ steps.check-releases.outputs.latest }} ($(date +'%Y-%m-%d'))"
+            git commit -m "Bump $REPO submodule to version ${{ steps.check-releases.outputs.latest }} ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
             git push
             echo "Successfully pushed changes to repository."
           fi
