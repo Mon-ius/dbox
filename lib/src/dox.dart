@@ -1,5 +1,5 @@
 import 'dart:ffi';
-import 'ffi/_bindings.dart';
+import 'dox_bindings.dart';
 
 import 'package:ffi/ffi.dart';
 
