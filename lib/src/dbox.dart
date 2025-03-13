@@ -1,12 +1,12 @@
 import 'dart:ffi';
-import 'dox_bindings.dart';
+import 'dbox_bindings.dart';
 
 import 'package:ffi/ffi.dart';
 
 class DoxLibrary {
-  final dox _bindings;
+  final dbox _bindings;
 
-  DoxLibrary(DynamicLibrary library) : _bindings = dox(library);
+  DoxLibrary(DynamicLibrary library) : _bindings = dbox(library);
 
   int add(int a, int b) {
     return _bindings.Add(a, b);
@@ -42,15 +42,15 @@ class DoxLibrary {
 }
 
 void main() {
-  final dylib = DynamicLibrary.open('libdox.so');
-  final doxLib = DoxLibrary(dylib);
+  final dylib = DynamicLibrary.open('libdbox.so');
+  final dboxLib = DoxLibrary(dylib);
   
-  print('Add(5, 7) = ${doxLib.add(5, 7)}');
-  print('Multiply(5, 7) = ${doxLib.multiply(5, 7)}');
-  print('HelloWorld() = ${doxLib.helloWorld()}');
+  print('Add(5, 7) = ${dboxLib.add(5, 7)}');
+  print('Multiply(5, 7) = ${dboxLib.multiply(5, 7)}');
+  print('HelloWorld() = ${dboxLib.helloWorld()}');
   
   const String encoded = 'SGVsbG8gV29ybGQh';
   print('Encoded: $encoded');
-  print('Decoded (Go): ${doxLib.base64Decode(encoded)}');
-  doxLib.printDebug('Debug message from Dart');
+  print('Decoded (Go): ${dboxLib.base64Decode(encoded)}');
+  dboxLib.printDebug('Debug message from Dart');
 }
