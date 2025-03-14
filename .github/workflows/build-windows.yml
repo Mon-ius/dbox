@@ -1,0 +1,149 @@
+name: windows
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches:
+      - "master"
+    paths:
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["listen"]
+    types:
+      - completed
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 'stable'
+          check-latest: true
+
+      - name: Create output directories
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "windows/bin/x64" | Out-Null
+          New-Item -ItemType Directory -Force -Path "windows/bin/x86" | Out-Null
+          New-Item -ItemType Directory -Force -Path "windows/bin/arm64" | Out-Null
+
+      - name: Navigate to source directory
+        shell: pwsh
+        run: |
+          # Check if src directory exists
+          if (Test-Path -Path "src") {
+            Set-Location -Path "src"
+            Write-Output "Changed working directory to $(Get-Location)"
+            echo "WORKING_DIR=$(Get-Location)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            Write-Output "src directory not found, staying in root directory"
+            echo "WORKING_DIR=$(Get-Location)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
+
+      - name: Build for Windows x64
+        shell: pwsh
+        run: |
+          Write-Output "Building for Windows x64..."
+          Set-Location -Path "$env:WORKING_DIR"
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          $env:CGO_ENABLED = "1"
+          
+          go build -buildmode=c-shared `
+            -trimpath `
+            -ldflags="-s -w -buildid=" `
+            -tags="with_debug windows" `
+            -o "$env:GITHUB_WORKSPACE\windows\bin\x64\dbox.dll" `
+            ./cmd/dbox
+
+      - name: Build for Windows x86
+        shell: pwsh
+        run: |
+          Write-Output "Building for Windows x86..."
+          Set-Location -Path "$env:WORKING_DIR"
+          $env:GOOS = "windows"
+          $env:GOARCH = "386"
+          $env:CGO_ENABLED = "1"
+          
+          go build -buildmode=c-shared `
+            -trimpath `
+            -ldflags="-s -w -buildid=" `
+            -tags="with_debug windows" `
+            -o "$env:GITHUB_WORKSPACE\windows\bin\x86\dbox.dll" `
+            ./cmd/dbox
+
+      - name: Build for Windows ARM64
+        shell: pwsh
+        run: |
+          Write-Output "Building for Windows ARM64..."
+          Set-Location -Path "$env:WORKING_DIR"
+          $env:GOOS = "windows"
+          $env:GOARCH = "arm64"
+          $env:CGO_ENABLED = "1"
+          
+          go build -buildmode=c-shared `
+            -trimpath `
+            -ldflags="-s -w -buildid=" `
+            -tags="with_debug windows" `
+            -o "$env:GITHUB_WORKSPACE\windows\bin\arm64\dbox.dll" `
+            ./cmd/dbox
+
+      - name: Verify the binaries
+        shell: pwsh
+        run: |
+          Set-Location -Path "$env:GITHUB_WORKSPACE"
+          
+          Write-Output "Verifying x64 binary:"
+          if (Test-Path "windows\bin\x64\dbox.dll") {
+            Write-Output "x64 DLL exists"
+            Get-Item "windows\bin\x64\dbox.dll" | Format-List
+          } else {
+            Write-Error "x64 DLL not found"
+          }
+          
+          Write-Output "Verifying x86 binary:"
+          if (Test-Path "windows\bin\x86\dbox.dll") {
+            Write-Output "x86 DLL exists"
+            Get-Item "windows\bin\x86\dbox.dll" | Format-List
+          } else {
+            Write-Error "x86 DLL not found"
+          }
+          
+          Write-Output "Verifying ARM64 binary:"
+          if (Test-Path "windows\bin\arm64\dbox.dll") {
+            Write-Output "ARM64 DLL exists"
+            Get-Item "windows\bin\arm64\dbox.dll" | Format-List
+          } else {
+            Write-Error "ARM64 DLL not found"
+          }
+
+      - name: Commit and push changes
+        shell: pwsh
+        run: |
+          Set-Location -Path "$env:GITHUB_WORKSPACE"
+          
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          git add windows/bin
+          
+          # Check if there are changes
+          $status = git status --porcelain
+          if ([string]::IsNullOrEmpty($status)) {
+            Write-Output "No changes detected in Windows libraries. Skipping commit."
+          } else {
+            Write-Output "Changes detected in Windows libraries. Creating commit..."
+            git commit -m "Build Windows libraries ($(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC' -AsUTC))"
+            git push
+            Write-Output "Successfully pushed changes to repository."
+          }
