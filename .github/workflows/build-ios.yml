@@ -30,18 +30,20 @@ jobs:
           go-version: 'stable'
           check-latest: true
 
-      - name: Install gomobile
+      - name: Install Xcode Command Line Tools
         run: |
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          go install golang.org/x/mobile/cmd/gobind@latest
-          gomobile init
+          xcode-select --print-path
+          sudo xcode-select --switch /Applications/Xcode.app
 
       - name: Create output directories
         run: |
-          mkdir -p ios/frameworks
+          mkdir -p ios/libs/arm64
+          mkdir -p ios/libs/x86_64
+          mkdir -p ios/libs/universal
 
       - name: Navigate to source directory
         run: |
+          # Check if src directory exists
           if [ -d "src" ]; then
             cd src
             echo "Changed working directory to $(pwd)"
@@ -51,82 +53,159 @@ jobs:
             echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
           fi
 
-      - name: Set up build environment
+      - name: Build for iOS arm64 (device)
         run: |
-          DEVELOPER_DIR=$(xcode-select -p)
-          echo "Using Xcode at: $DEVELOPER_DIR"
-          
-          IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
-          echo "Using iOS SDK version: $IOS_SDK_VERSION"
-          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> $GITHUB_ENV
-          echo "IOS_SDK_VERSION=$IOS_SDK_VERSION" >> $GITHUB_ENV
-          echo "IOS_MIN_VERSION=11.0" >> $GITHUB_ENV
-
-      - name: Build for iOS using gomobile
-        run: |
-          echo "Building for iOS using gomobile..."
+          echo "Building for iOS arm64..."
           cd $WORKING_DIR
-          export PATH=$PATH:$(go env GOPATH)/bin
-          
-          BUILD_FLAGS="-ldflags=-s -w -buildid="
-          TAGS="with_debug ios"
-          
-          echo "Building framework for iOS devices..."
-          gomobile bind -target=ios \
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+            CC=$(xcrun --sdk iphoneos --find clang) \
+            CXX=$(xcrun --sdk iphoneos --find clang++) \
+            CGO_CFLAGS="-isysroot $(xcrun --sdk iphoneos --show-sdk-path) -mios-version-min=13.0 -arch arm64" \
+            CGO_LDFLAGS="-isysroot $(xcrun --sdk iphoneos --show-sdk-path) -mios-version-min=13.0 -arch arm64" \
+            go build -buildmode=c-archive \
             -trimpath \
-            $BUILD_FLAGS \
-            -tags="$TAGS" \
-            -o "$GITHUB_WORKSPACE/ios/frameworks/Dbox-device.framework" \
-            ./cmd/dbox
-            
-          echo "Building framework for iOS simulators..."
-          gomobile bind -target=iossimulator \
-            -trimpath \
-            $BUILD_FLAGS \
-            -tags="$TAGS" \
-            -o "$GITHUB_WORKSPACE/ios/frameworks/Dbox-simulator.framework" \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug ios" \
+            -o "$GITHUB_WORKSPACE/ios/libs/arm64/libdbox.a" \
             ./cmd/dbox
 
-      - name: Verify the frameworks
+      - name: Build for iOS x86_64 (simulator)
         run: |
+          echo "Building for iOS simulator (x86_64)..."
+          cd $WORKING_DIR
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+            CC=$(xcrun --sdk iphonesimulator --find clang) \
+            CXX=$(xcrun --sdk iphonesimulator --find clang++) \
+            CGO_CFLAGS="-isysroot $(xcrun --sdk iphonesimulator --show-sdk-path) -mios-simulator-version-min=13.0 -arch x86_64" \
+            CGO_LDFLAGS="-isysroot $(xcrun --sdk iphonesimulator --show-sdk-path) -mios-simulator-version-min=13.0 -arch x86_64" \
+            go build -buildmode=c-archive \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug ios" \
+            -o "$GITHUB_WORKSPACE/ios/libs/x86_64/libdbox.a" \
+            ./cmd/dbox
+
+      - name: Create Universal Binary
+        run: |
+          echo "Creating universal binary..."
           cd $GITHUB_WORKSPACE
+          lipo -create \
+            ios/libs/arm64/libdbox.a \
+            ios/libs/x86_64/libdbox.a \
+            -output ios/libs/universal/libdbox.a
           
-          echo "Verifying device framework:"
-          ls -la ios/frameworks/Dbox-device.framework
-          xcrun lipo -info ios/frameworks/Dbox-device.framework/Dbox
-          
-          echo "Verifying simulator framework:"
-          ls -la ios/frameworks/Dbox-simulator.framework
-          xcrun lipo -info ios/frameworks/Dbox-simulator.framework/Dbox
+          # Also copy the header file to the universal folder
+          cp ios/libs/arm64/libdbox.h ios/libs/universal/
           
       - name: Create XCFramework
         run: |
+          echo "Creating XCFramework..."
           cd $GITHUB_WORKSPACE
           
-          echo "Creating XCFramework..."
+          # Create framework structure for device (arm64)
+          mkdir -p ios/DBoxFramework-ios-arm64.framework/Headers
+          cp ios/libs/arm64/libdbox.h ios/DBoxFramework-ios-arm64.framework/Headers/
+          cp ios/libs/arm64/libdbox.a ios/DBoxFramework-ios-arm64.framework/DBoxFramework
           
-          xcrun xcodebuild -create-xcframework \
-            -framework ios/frameworks/Dbox-device.framework \
-            -framework ios/frameworks/Dbox-simulator.framework \
+          # Create Info.plist for device framework
+          cat > ios/DBoxFramework-ios-arm64.framework/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DBoxFramework</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.mon-ius.DBoxFramework</string>
+              <key>CFBundleName</key>
+              <string>DBoxFramework</string>
+              <key>CFBundlePackageType</key>
+              <string>FMWK</string>
+              <key>CFBundleVersion</key>
+              <string>1.0</string>
+              <key>MinimumOSVersion</key>
+              <string>13.0</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # Create framework structure for simulator (x86_64)
+          mkdir -p ios/DBoxFramework-ios-x86_64-simulator.framework/Headers
+          cp ios/libs/x86_64/libdbox.h ios/DBoxFramework-ios-x86_64-simulator.framework/Headers/
+          cp ios/libs/x86_64/libdbox.a ios/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework
+          
+          # Create Info.plist for simulator framework
+          cat > ios/DBoxFramework-ios-x86_64-simulator.framework/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DBoxFramework</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.mon-ius.DBoxFramework</string>
+              <key>CFBundleName</key>
+              <string>DBoxFramework</string>
+              <key>CFBundlePackageType</key>
+              <string>FMWK</string>
+              <key>CFBundleVersion</key>
+              <string>1.0</string>
+              <key>MinimumOSVersion</key>
+              <string>13.0</string>
+          </dict>
+          </plist>
+          EOF
+          
+          xcodebuild -create-xcframework \
+            -framework ios/DBoxFramework-ios-arm64.framework \
+            -framework ios/DBoxFramework-ios-x86_64-simulator.framework \
             -output ios/libdbox.xcframework
+
+      - name: Create podspec file
+        run: |
+          echo "Creating podspec file..."
+          cd $GITHUB_WORKSPACE
+
+          GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+          VERSION=${GIT_TAG#v}
+          
+          cat > dbox.podspec << EOF
+          Pod::Spec.new do |s|
+            s.name             = 'DBoxFramework'
+            s.version          = '${VERSION}'
+            s.summary          = 'DBox framework for iOS'
+            s.description      = 'A cross-platform library compiled for iOS from Go code.'
+            s.homepage         = 'https://github.com/${GITHUB_REPOSITORY}'
+            s.license          = { :type => 'GNU General Public License v3.0', :file => 'LICENSE' }
+            s.author           = { 'M0nius' => 'm0niusplus@gmail.com' }
+            s.source           = { :git => 'https://github.com/${GITHUB_REPOSITORY}.git', :tag => s.version.to_s }
             
-          echo "XCFramework created successfully"
-          ls -la ios/libdbox.xcframework
+            s.ios.deployment_target = '13.0'
+            s.swift_version = '5.0'
+            
+            s.vendored_frameworks = 'ios/libdbox.xcframework'
+            
+            s.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64' }
+            s.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64' }
+            s.requires_arc = true
+          end
+          EOF
+          
+          echo "Created podspec file for version ${VERSION}"
 
       - name: Commit and push changes
         run: |
           cd $GITHUB_WORKSPACE
-          
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          git add ios/libdbox.xcframework
+          git add ios/libs ios/libdbox.xcframework
           
           if git diff --staged --quiet; then
-            echo "No changes detected in iOS frameworks. Skipping commit."
+            echo "No changes detected in iOS libraries. Skipping commit."
           else
-            echo "Changes detected in iOS frameworks. Creating commit..."
-            git commit -m "Build iOS XCFramework using gomobile ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
+            echo "Changes detected in iOS libraries. Creating commit..."
+            git commit -m "Build iOS libraries ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
             git push
             echo "Successfully pushed changes to repository."
           fi
