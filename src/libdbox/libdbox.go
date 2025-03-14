@@ -4,32 +4,22 @@ import (
 	"encoding/base64"
 )
 
-// #include <stdlib.h>
-import "C"
-
-//export Add
 func Add(a, b int) int {
-	return a + b
+    return a + b
 }
 
-//export Multiply
 func Multiply(a, b int) int {
-	return a * b
+    return a * b
 }
 
-//export HelloWorld
-func HelloWorld() *C.char {
-	return C.CString("Hello from Go shared library!")
+func Base64DecodeString(encodedStr string) (string, error) {
+    decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
+    if err != nil {
+        return "", err
+    }
+    return string(decodedBytes), nil
 }
 
-//export Base64Decode
-func Base64Decode(encodedStr *C.char) *C.char {
-	goEncodedStr := C.GoString(encodedStr)
-	
-	decodedBytes, err := base64.StdEncoding.DecodeString(goEncodedStr)
-	if err != nil {
-		return C.CString("Error: " + err.Error())
-	}
-	
-	return C.CString(string(decodedBytes))
+func HelloWorldString() string {
+    return "Hello from Go shared library!"
 }

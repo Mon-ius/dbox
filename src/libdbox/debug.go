@@ -3,19 +3,17 @@
 package libdbox
 
 import (
-	"fmt"
-	"unsafe"
+    "fmt"
+    "unsafe"
 )
 
 // #include <stdlib.h>
 import "C"
 
-//export PrintDebug
-func PrintDebug(message *C.char) {
-	fmt.Printf("DEBUG: %s\n", C.GoString(message))
+func PrintDebugMessage(message string) {
+    fmt.Printf("DEBUG: %s\n", message)
 }
 
-//export FreeString
-func FreeString(str *C.char) {
-	C.free(unsafe.Pointer(str))
+func FreeStringPtr(ptr unsafe.Pointer) {
+    C.free(ptr)
 }
