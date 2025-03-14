@@ -2,8 +2,6 @@ package libdbox
 
 import (
 	"encoding/base64"
-	"fmt"
-	"unsafe"
 )
 
 // #include <stdlib.h>
@@ -34,16 +32,6 @@ func Base64Decode(encodedStr *C.char) *C.char {
 	}
 	
 	return C.CString(string(decodedBytes))
-}
-
-//export PrintDebug
-func PrintDebug(message *C.char) {
-	fmt.Printf("DEBUG: %s\n", C.GoString(message))
-}
-
-//export FreeString
-func FreeString(str *C.char) {
-	C.free(unsafe.Pointer(str))
 }
 
 //export enforce_binding
