@@ -1,0 +1,117 @@
+name: android
+
+permissions:
+  contents: write
+
+on:
+  workflow_run:
+    workflows: ["listen"]
+    types:
+      - completed
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches:
+      - "master"
+    paths:
+      - ".github/workflows/build-android.yml"
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 'stable'
+          check-latest: true
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: |
+          LATEST_NDK=$(sdkmanager --list | grep -o "ndk;[0-9.]*" | sort -V | tail -1)
+          echo "Installing $LATEST_NDK"
+          yes | sdkmanager --install "$LATEST_NDK"
+          
+          NDK_VERSION=$(echo $LATEST_NDK | cut -d';' -f2)
+          echo "Using NDK version: $NDK_VERSION"
+          
+          echo "ANDROID_SDK=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "NDK_BIN=$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
+
+      - name: Create output directories
+        run: |
+          mkdir -p android/src/main/jniLibs/arm64-v8a
+          mkdir -p android/src/main/jniLibs/armeabi-v7a
+          mkdir -p android/src/main/jniLibs/x86_64
+          mkdir -p android/src/main/jniLibs/x86
+
+      - name: Build for arm64-v8a
+        run: |
+          echo "Building for arm64-v8a..."
+          ARCH="arm64" CGO_ENABLED=1 GOOS=android GOARCH=$ARCH \
+            CC=$NDK_BIN/aarch64-linux-android21-clang \
+            go build -buildmode=c-shared \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug" \
+            -o "android/src/main/jniLibs/arm64-v8a/libdbox.so" \
+            ./cmd/dbox
+
+      - name: Build for armeabi-v7a
+        run: |
+          echo "Building for armeabi-v7a..."
+          ARCH="arm" CGO_ENABLED=1 GOOS=android GOARCH=$ARCH GOARM=7 \
+            CC=$NDK_BIN/armv7a-linux-androideabi21-clang \
+            go build -buildmode=c-shared \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug" \
+            -o "android/src/main/jniLibs/armeabi-v7a/libdbox.so" \
+            ./cmd/dbox
+
+      - name: Build for x86_64
+        run: |
+          echo "Building for x86_64..."
+          ARCH="amd64" CGO_ENABLED=1 GOOS=android GOARCH=amd64 \
+            CC=$NDK_BIN/x86_64-linux-android21-clang \
+            go build -buildmode=c-shared \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug" \
+            -o "android/src/main/jniLibs/x86_64/libdbox.so" \
+            ./cmd/dbox
+
+      - name: Build for x86
+        run: |
+          echo "Building for x86..."
+          ARCH="386" CGO_ENABLED=1 GOOS=android GOARCH=$ARCH \
+            CC=$NDK_BIN/i686-linux-android21-clang \
+            go build -buildmode=c-shared \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug" \
+            -o "android/src/main/jniLibs/x86/libdbox.so" \
+            ./cmd/dbox
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          git add android/src/main/jniLibs
+          
+          if git diff --staged --quiet; then
+            echo "No changes detected in Android libraries. Skipping commit."
+          else
+            echo "Changes detected in Android libraries. Creating commit..."
+            git commit -m "Build Android libraries ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
+            git push
+            echo "Successfully pushed changes to repository."
+          fi
