@@ -1,0 +1,160 @@
+name: linux
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches:
+      - "master"
+    paths:
+      - ".github/workflows/build-linux.yml"
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["listen"]
+    types:
+      - completed
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 'stable'
+          check-latest: true
+
+      - name: Create output directories
+        run: |
+          mkdir -p linux/lib/amd64
+          mkdir -p linux/lib/arm64
+          mkdir -p linux/lib/386
+          mkdir -p linux/lib/armv7
+
+      - name: Navigate to source directory
+        run: |
+          # Check if src directory exists
+          if [ -d "src" ]; then
+            cd src
+            echo "Changed working directory to $(pwd)"
+            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
+          else
+            echo "src directory not found, staying in root directory"
+            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
+          fi
+
+      - name: Build for Linux AMD64
+        run: |
+          echo "Building for Linux AMD64..."
+          cd $WORKING_DIR
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 \
+            go build -buildmode=c-shared \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug" \
+            -o "$GITHUB_WORKSPACE/linux/lib/amd64/libdbox.so" \
+            ./cmd/dbox
+
+      - name: Build for Linux ARM64
+        run: |
+          echo "Building for Linux ARM64..."
+          cd $WORKING_DIR
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 \
+            go build -buildmode=c-shared \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug" \
+            -o "$GITHUB_WORKSPACE/linux/lib/arm64/libdbox.so" \
+            ./cmd/dbox
+
+      - name: Build for Linux 386
+        run: |
+          echo "Building for Linux 386..."
+          cd $WORKING_DIR
+          GOOS=linux GOARCH=386 CGO_ENABLED=1 \
+            go build -buildmode=c-shared \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug" \
+            -o "$GITHUB_WORKSPACE/linux/lib/386/libdbox.so" \
+            ./cmd/dbox
+
+      - name: Build for Linux ARMv7
+        run: |
+          echo "Building for Linux ARMv7..."
+          cd $WORKING_DIR
+          GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=1 \
+            go build -buildmode=c-shared \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug" \
+            -o "$GITHUB_WORKSPACE/linux/lib/armv7/libdbox.so" \
+            ./cmd/dbox
+
+      - name: Verify the libraries
+        run: |
+          cd $GITHUB_WORKSPACE
+          
+          echo "Verifying AMD64 library:"
+          if [ -f "linux/lib/amd64/libdbox.so" ]; then
+            echo "AMD64 library exists"
+            ls -la linux/lib/amd64/libdbox.so
+            file linux/lib/amd64/libdbox.so
+          else
+            echo "ERROR: AMD64 library not found"
+            exit 1
+          fi
+          
+          echo "Verifying ARM64 library:"
+          if [ -f "linux/lib/arm64/libdbox.so" ]; then
+            echo "ARM64 library exists"
+            ls -la linux/lib/arm64/libdbox.so
+            file linux/lib/arm64/libdbox.so
+          else
+            echo "ERROR: ARM64 library not found"
+            exit 1
+          fi
+          
+          echo "Verifying 386 library:"
+          if [ -f "linux/lib/386/libdbox.so" ]; then
+            echo "386 library exists"
+            ls -la linux/lib/386/libdbox.so
+            file linux/lib/386/libdbox.so
+          else
+            echo "ERROR: 386 library not found"
+            exit 1
+          fi
+          
+          echo "Verifying ARMv7 library:"
+          if [ -f "linux/lib/armv7/libdbox.so" ]; then
+            echo "ARMv7 library exists"
+            ls -la linux/lib/armv7/libdbox.so
+            file linux/lib/armv7/libdbox.so
+          else
+            echo "ERROR: ARMv7 library not found"
+            exit 1
+          fi
+
+      - name: Commit and push changes
+        run: |
+          cd $GITHUB_WORKSPACE
+          
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          git add linux/lib
+          
+          if git diff --staged --quiet; then
+            echo "No changes detected in Linux libraries. Skipping commit."
+          else
+            echo "Changes detected in Linux libraries. Creating commit..."
+            git commit -m "Build Linux libraries ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
+            git push
+            echo "Successfully pushed changes to repository."
+          fi
