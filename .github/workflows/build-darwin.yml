@@ -101,66 +101,15 @@ jobs:
           echo "Creating XCFramework..."
           cd $GITHUB_WORKSPACE
           
-          mkdir -p macos/DBoxFramework-macos-arm64.framework/Headers
-          mkdir -p macos/DBoxFramework-macos-x86_64.framework/Headers
-
-          cp macos/libs/arm64/libdbox.h macos/DBoxFramework-macos-arm64.framework/Headers/
-          cp macos/libs/arm64/libdbox.a macos/DBoxFramework-macos-arm64.framework/DBoxFramework-macos-arm64
-          chmod +x macos/DBoxFramework-macos-arm64.framework/DBoxFramework-macos-arm64
-
-          cp macos/libs/x86_64/libdbox.h macos/DBoxFramework-macos-x86_64.framework/Headers/
-          cp macos/libs/x86_64/libdbox.a macos/DBoxFramework-macos-x86_64.framework/DBoxFramework-macos-x86_64
-          chmod +x macos/DBoxFramework-macos-x86_64.framework/DBoxFramework-macos-x86_64
-          
-          cat > macos/DBoxFramework-macos-arm64.framework/Info.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleExecutable</key>
-              <string>DBoxFramework-macos-arm64</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.mon-ius.DBoxFramework</string>
-              <key>CFBundleName</key>
-              <string>DBoxFramework</string>
-              <key>CFBundlePackageType</key>
-              <string>FMWK</string>
-              <key>CFBundleVersion</key>
-              <string>1.0</string>
-              <key>MinimumOSVersion</key>
-              <string>11.0</string>
-          </dict>
-          </plist>
-          EOF
-          
-          cat > macos/DBoxFramework-macos-x86_64.framework/Info.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleExecutable</key>
-              <string>DBoxFramework-macos-x86_64</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.mon-ius.DBoxFramework</string>
-              <key>CFBundleName</key>
-              <string>DBoxFramework</string>
-              <key>CFBundlePackageType</key>
-              <string>FMWK</string>
-              <key>CFBundleVersion</key>
-              <string>1.0</string>
-              <key>MinimumOSVersion</key>
-              <string>10.13</string>
-          </dict>
-          </plist>
-          EOF
-
-          ls -la macos/DBoxFramework-macos-arm64.framework/
-          ls -la macos/DBoxFramework-macos-x86_64.framework/
-          
           xcodebuild -create-xcframework \
-            -framework macos/DBoxFramework-macos-arm64.framework \
-            -framework macos/DBoxFramework-macos-x86_64.framework \
+            -library macos/libs/arm64/libdbox.a \
+            -headers macos/libs/arm64/libdbox.h \
+            -library macos/libs/x86_64/libdbox.a \
+            -headers macos/libs/x86_64/libdbox.h \
             -output macos/libdbox.xcframework
+            
+          echo "XCFramework created successfully"
+          ls -la macos/libdbox.xcframework/
 
       - name: Create podspec file
         run: |
