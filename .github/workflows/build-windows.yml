@@ -31,122 +31,122 @@ jobs:
           check-latest: true
 
       - name: Set up MinGW for cross-compilation
-        shell: pwsh
-        run: |
-          # Use MSYS2 instead of MinGW directly for better compatibility
-          choco install msys2 -y
-          
-          # Update MSYS2 and install required tools
-          & 'C:\tools\msys64\usr\bin\bash.exe' -lc "pacman -Syu --noconfirm"
-          & 'C:\tools\msys64\usr\bin\bash.exe' -lc "pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-i686-gcc"
-          
-          # Add MSYS2 MinGW paths to system PATH
-          echo "C:\tools\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "C:\tools\msys64\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "C:\tools\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          
-          # Verify installation
-          Write-Output "Checking for x86_64-w64-mingw32-gcc:"
-          & where.exe x86_64-w64-mingw32-gcc
-          Write-Output "Checking for i686-w64-mingw32-gcc:"
-          & where.exe i686-w64-mingw32-gcc
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
 
       - name: Create output directories
-        shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "windows/bin/x64" | Out-Null
-          New-Item -ItemType Directory -Force -Path "windows/bin/x86" | Out-Null
+          mkdir -p windows\lib\amd64
+          mkdir -p windows\lib\arm64
+          mkdir -p windows\lib\386
+        shell: cmd
 
       - name: Navigate to source directory
-        shell: pwsh
         run: |
-          # Check if src directory exists
-          if (Test-Path -Path "src") {
-            Set-Location -Path "src"
-            Write-Output "Changed working directory to $(Get-Location)"
-            echo "WORKING_DIR=$(Get-Location)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          if exist src (
+            cd src
+            echo "Changed working directory to %CD%"
+            echo "WORKING_DIR=%CD%" >> $env:GITHUB_ENV
+          ) else (
+            echo "src directory not found, staying in root directory"
+            echo "WORKING_DIR=%CD%" >> $env:GITHUB_ENV
+          )
+        shell: cmd
+
+      - name: Build for Windows AMD64
+        run: |
+          echo "Building for Windows AMD64..."
+          cd %WORKING_DIR%
+          set GOOS=windows
+          set GOARCH=amd64
+          set CGO_ENABLED=1
+          go build -buildmode=c-shared ^
+            -trimpath ^
+            -ldflags="-s -w -buildid=" ^
+            -tags="with_debug" ^
+            -o "$env:GITHUB_WORKSPACE\windows\lib\amd64\dbox.dll" ^
+            .\cmd\dbox
+        shell: cmd
+
+      - name: Build for Windows ARM64
+        run: |
+          echo "Building for Windows ARM64..."
+          cd %WORKING_DIR%
+          set GOOS=windows
+          set GOARCH=arm64
+          set CGO_ENABLED=1
+          go build -buildmode=c-shared ^
+            -trimpath ^
+            -ldflags="-s -w -buildid=" ^
+            -tags="with_debug" ^
+            -o "$env:GITHUB_WORKSPACE\windows\lib\arm64\dbox.dll" ^
+            .\cmd\dbox
+        shell: cmd
+
+      - name: Build for Windows 386
+        run: |
+          echo "Building for Windows 386..."
+          cd %WORKING_DIR%
+          set GOOS=windows
+          set GOARCH=386
+          set CGO_ENABLED=1
+          go build -buildmode=c-shared ^
+            -trimpath ^
+            -ldflags="-s -w -buildid=" ^
+            -tags="with_debug" ^
+            -o "$env:GITHUB_WORKSPACE\windows\lib\386\dbox.dll" ^
+            .\cmd\dbox
+        shell: cmd
+
+      - name: Verify the libraries
+        run: |
+          cd $env:GITHUB_WORKSPACE
+          
+          echo "Verifying AMD64 library:"
+          if (Test-Path "windows\lib\amd64\dbox.dll") {
+            echo "AMD64 library exists"
+            Get-Item windows\lib\amd64\dbox.dll | Format-List
           } else {
-            Write-Output "src directory not found, staying in root directory"
-            echo "WORKING_DIR=$(Get-Location)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          }
-
-      - name: Build for Windows x64
-        shell: pwsh
-        run: |
-          Write-Output "Building for Windows x64..."
-          Set-Location -Path "$env:WORKING_DIR"
-          
-          # Use direct compiler name that matches MSYS2 installation
-          $env:CGO_ENABLED = "1"
-          $env:GOOS = "windows"
-          $env:GOARCH = "amd64"
-          
-          # Try with the standard name first
-          go build -buildmode=c-shared `
-            -trimpath `
-            -ldflags="-s -w -buildid=" `
-            -tags="with_debug windows" `
-            -o "$env:GITHUB_WORKSPACE\windows\bin\x64\dbox.dll" `
-            ./cmd/dbox
-
-      - name: Build for Windows x86
-        shell: pwsh
-        run: |
-          Write-Output "Building for Windows x86..."
-          Set-Location -Path "$env:WORKING_DIR"
-          
-          # Use direct compiler name that matches MSYS2 installation
-          $env:CGO_ENABLED = "1"
-          $env:GOOS = "windows"
-          $env:GOARCH = "386"
-          $env:CC = "i686-w64-mingw32-gcc"
-          
-          go build -buildmode=c-shared `
-            -trimpath `
-            -ldflags="-s -w -buildid=" `
-            -tags="with_debug windows" `
-            -o "$env:GITHUB_WORKSPACE\windows\bin\x86\dbox.dll" `
-            ./cmd/dbox
-
-      - name: Verify the binaries
-        shell: pwsh
-        run: |
-          Set-Location -Path "$env:GITHUB_WORKSPACE"
-          
-          Write-Output "Verifying x64 binary:"
-          if (Test-Path "windows\bin\x64\dbox.dll") {
-            Write-Output "x64 DLL exists"
-            Get-Item "windows\bin\x64\dbox.dll" | Format-List
-          } else {
-            Write-Error "x64 DLL not found"
+            echo "ERROR: AMD64 library not found"
             exit 1
           }
           
-          Write-Output "Verifying x86 binary:"
-          if (Test-Path "windows\bin\x86\dbox.dll") {
-            Write-Output "x86 DLL exists"
-            Get-Item "windows\bin\x86\dbox.dll" | Format-List
+          echo "Verifying ARM64 library:"
+          if (Test-Path "windows\lib\arm64\dbox.dll") {
+            echo "ARM64 library exists"
+            Get-Item windows\lib\arm64\dbox.dll | Format-List
           } else {
-            Write-Error "x86 DLL not found"
+            echo "ERROR: ARM64 library not found"
             exit 1
           }
+          
+          echo "Verifying 386 library:"
+          if (Test-Path "windows\lib\386\dbox.dll") {
+            echo "386 library exists"
+            Get-Item windows\lib\386\dbox.dll | Format-List
+          } else {
+            echo "ERROR: 386 library not found"
+            exit 1
+          }
+        shell: pwsh
 
       - name: Commit and push changes
-        shell: pwsh
         run: |
-          Set-Location -Path "$env:GITHUB_WORKSPACE"
+          cd $env:GITHUB_WORKSPACE
           
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          git add windows/bin
+          git add windows\lib
           
-          $status = git status --porcelain
-          if ([string]::IsNullOrEmpty($status)) {
-            Write-Output "No changes detected in Windows libraries. Skipping commit."
+          git diff --staged --quiet
+          if ($LASTEXITCODE -eq 0) {
+            echo "No changes detected in Windows libraries. Skipping commit."
           } else {
-            Write-Output "Changes detected in Windows libraries. Creating commit..."
+            echo "Changes detected in Windows libraries. Creating commit..."
             git commit -m "Build Windows libraries ($(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC' -AsUTC))"
             git push
-            Write-Output "Successfully pushed changes to repository."
+            echo "Successfully pushed changes to repository."
           }
+        shell: pwsh
