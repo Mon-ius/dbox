@@ -30,12 +30,18 @@ jobs:
           go-version: 'stable'
           check-latest: true
 
+      - name: Set up MinGW for cross-compilation
+        shell: pwsh
+        run: |
+          choco install mingw --version=8.1.0 -y
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
       - name: Create output directories
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "windows/bin/x64" | Out-Null
           New-Item -ItemType Directory -Force -Path "windows/bin/x86" | Out-Null
-          New-Item -ItemType Directory -Force -Path "windows/bin/arm64" | Out-Null
 
       - name: Navigate to source directory
         shell: pwsh
@@ -58,6 +64,7 @@ jobs:
           $env:GOOS = "windows"
           $env:GOARCH = "amd64"
           $env:CGO_ENABLED = "1"
+          $env:CC = "x86_64-w64-mingw32-gcc"
           
           go build -buildmode=c-shared `
             -trimpath `
@@ -74,28 +81,13 @@ jobs:
           $env:GOOS = "windows"
           $env:GOARCH = "386"
           $env:CGO_ENABLED = "1"
+          $env:CC = "i686-w64-mingw32-gcc"
           
           go build -buildmode=c-shared `
             -trimpath `
             -ldflags="-s -w -buildid=" `
             -tags="with_debug windows" `
             -o "$env:GITHUB_WORKSPACE\windows\bin\x86\dbox.dll" `
-            ./cmd/dbox
-
-      - name: Build for Windows ARM64
-        shell: pwsh
-        run: |
-          Write-Output "Building for Windows ARM64..."
-          Set-Location -Path "$env:WORKING_DIR"
-          $env:GOOS = "windows"
-          $env:GOARCH = "arm64"
-          $env:CGO_ENABLED = "1"
-          
-          go build -buildmode=c-shared `
-            -trimpath `
-            -ldflags="-s -w -buildid=" `
-            -tags="with_debug windows" `
-            -o "$env:GITHUB_WORKSPACE\windows\bin\arm64\dbox.dll" `
             ./cmd/dbox
 
       - name: Verify the binaries
@@ -118,14 +110,6 @@ jobs:
           } else {
             Write-Error "x86 DLL not found"
           }
-          
-          Write-Output "Verifying ARM64 binary:"
-          if (Test-Path "windows\bin\arm64\dbox.dll") {
-            Write-Output "ARM64 DLL exists"
-            Get-Item "windows\bin\arm64\dbox.dll" | Format-List
-          } else {
-            Write-Error "ARM64 DLL not found"
-          }
 
       - name: Commit and push changes
         shell: pwsh
@@ -137,7 +121,6 @@ jobs:
           
           git add windows/bin
           
-          # Check if there are changes
           $status = git status --porcelain
           if ([string]::IsNullOrEmpty($status)) {
             Write-Output "No changes detected in Windows libraries. Skipping commit."
