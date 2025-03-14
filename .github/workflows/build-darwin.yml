@@ -1,0 +1,212 @@
+name: darwin
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches:
+      - "master"
+    paths:
+      - ".github/workflows/build-darwin.yml"
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["listen"]
+    types:
+      - completed
+
+jobs:
+  build-darwin:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 'stable'
+          check-latest: true
+
+      - name: Install Xcode Command Line Tools
+        run: |
+          xcode-select --print-path
+          sudo xcode-select --switch /Applications/Xcode.app
+
+      - name: Create output directories
+        run: |
+          mkdir -p macos/libs/arm64
+          mkdir -p macos/libs/x86_64
+          mkdir -p macos/libs/universal
+
+      - name: Navigate to source directory
+        run: |
+          # Check if src directory exists
+          if [ -d "src" ]; then
+            cd src
+            echo "Changed working directory to $(pwd)"
+            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
+          else
+            echo "src directory not found, staying in root directory"
+            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
+          fi
+
+      - name: Build for macOS arm64 (Apple Silicon)
+        run: |
+          echo "Building for macOS arm64..."
+          cd $WORKING_DIR
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+            CC=$(xcrun --sdk macosx --find clang) \
+            CXX=$(xcrun --sdk macosx --find clang++) \
+            CGO_CFLAGS="-isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=11.0 -arch arm64" \
+            CGO_LDFLAGS="-isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=11.0 -arch arm64" \
+            go build -buildmode=c-archive \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug macos" \
+            -o "$GITHUB_WORKSPACE/macos/libs/arm64/libdbox.a" \
+            ./cmd/dbox
+
+      - name: Build for macOS x86_64 (Intel)
+        run: |
+          echo "Building for macOS x86_64..."
+          cd $WORKING_DIR
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+            CC=$(xcrun --sdk macosx --find clang) \
+            CXX=$(xcrun --sdk macosx --find clang++) \
+            CGO_CFLAGS="-isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=10.13 -arch x86_64" \
+            CGO_LDFLAGS="-isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=10.13 -arch x86_64" \
+            go build -buildmode=c-archive \
+            -trimpath \
+            -ldflags="-s -w -buildid=" \
+            -tags="with_debug macos" \
+            -o "$GITHUB_WORKSPACE/macos/libs/x86_64/libdbox.a" \
+            ./cmd/dbox
+
+      - name: Create Universal Binary
+        run: |
+          echo "Creating universal binary..."
+          cd $GITHUB_WORKSPACE
+          lipo -create \
+            macos/libs/arm64/libdbox.a \
+            macos/libs/x86_64/libdbox.a \
+            -output macos/libs/universal/libdbox.a
+
+          cp macos/libs/arm64/libdbox.h macos/libs/universal/
+          
+      - name: Create XCFramework
+        run: |
+          echo "Creating XCFramework..."
+          cd $GITHUB_WORKSPACE
+          
+          mkdir -p macos/DBoxFramework-macos-arm64.framework/Headers
+          mkdir -p macos/DBoxFramework-macos-x86_64.framework/Headers
+
+          cp macos/libs/arm64/libdbox.h macos/DBoxFramework-macos-arm64.framework/Headers/
+          cp macos/libs/arm64/libdbox.a macos/DBoxFramework-macos-arm64.framework/DBoxFramework-macos-arm64
+          chmod +x macos/DBoxFramework-macos-arm64.framework/DBoxFramework-macos-arm64
+
+          cp macos/libs/x86_64/libdbox.h macos/DBoxFramework-macos-x86_64.framework/Headers/
+          cp macos/libs/x86_64/libdbox.a macos/DBoxFramework-macos-x86_64.framework/DBoxFramework-macos-x86_64
+          chmod +x macos/DBoxFramework-macos-x86_64.framework/DBoxFramework-macos-x86_64
+          
+          cat > macos/DBoxFramework-macos-arm64.framework/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DBoxFramework-macos-arm64</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.mon-ius.DBoxFramework</string>
+              <key>CFBundleName</key>
+              <string>DBoxFramework</string>
+              <key>CFBundlePackageType</key>
+              <string>FMWK</string>
+              <key>CFBundleVersion</key>
+              <string>1.0</string>
+              <key>MinimumOSVersion</key>
+              <string>11.0</string>
+          </dict>
+          </plist>
+          EOF
+          
+          cat > macos/DBoxFramework-macos-x86_64.framework/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DBoxFramework-macos-x86_64</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.mon-ius.DBoxFramework</string>
+              <key>CFBundleName</key>
+              <string>DBoxFramework</string>
+              <key>CFBundlePackageType</key>
+              <string>FMWK</string>
+              <key>CFBundleVersion</key>
+              <string>1.0</string>
+              <key>MinimumOSVersion</key>
+              <string>10.13</string>
+          </dict>
+          </plist>
+          EOF
+
+          ls -la macos/DBoxFramework-macos-arm64.framework/
+          ls -la macos/DBoxFramework-macos-x86_64.framework/
+          
+          xcodebuild -create-xcframework \
+            -framework macos/DBoxFramework-macos-arm64.framework \
+            -framework macos/DBoxFramework-macos-x86_64.framework \
+            -output macos/libdbox.xcframework
+
+      - name: Create podspec file
+        run: |
+          echo "Creating podspec file..."
+          cd $GITHUB_WORKSPACE
+
+          GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+          VERSION=${GIT_TAG#v}
+          
+          cat > dbox-macos.podspec << EOF
+          Pod::Spec.new do |s|
+            s.name             = 'DBoxFramework-macOS'
+            s.version          = '${VERSION}'
+            s.summary          = 'DBox framework for macOS'
+            s.description      = 'A cross-platform library compiled for macOS from Go code.'
+            s.homepage         = 'https://github.com/${GITHUB_REPOSITORY}'
+            s.license          = { :type => 'GNU General Public License v3.0', :file => 'LICENSE' }
+            s.author           = { 'M0nius' => 'm0niusplus@gmail.com' }
+            s.source           = { :git => 'https://github.com/${GITHUB_REPOSITORY}.git', :tag => s.version.to_s }
+            
+            s.osx.deployment_target = '10.13'
+            s.swift_version = '5.0'
+            
+            s.vendored_frameworks = 'macos/libdbox.xcframework'
+            
+            s.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=*]' => 'arm64 x86_64' }
+            s.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=*]' => 'arm64 x86_64' }
+            s.requires_arc = true
+          end
+          EOF
+          
+          echo "Created podspec file for version ${VERSION}"
+
+      - name: Commit and push changes
+        run: |
+          cd $GITHUB_WORKSPACE
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          git add macos/libs macos/libdbox.xcframework dbox-macos.podspec
+          
+          if git diff --staged --quiet; then
+            echo "No changes detected in macOS libraries. Skipping commit."
+          else
+            echo "Changes detected in macOS libraries. Creating commit..."
+            git commit -m "Build macOS libraries ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
+            git push
+            echo "Successfully pushed changes to repository."
+          fi
