@@ -9,7 +9,7 @@ OUTPUT="build"
 TAGS="with_debug"
 LDFLAGS="-s -w -buildid="
 
-cd dbox-library
+cd src/cmd
 CGO_ENABLED=1 GOOS=linux GOARCH=$ARCH go build -v \
     -buildmode=c-shared \
     -trimpath \
@@ -17,7 +17,7 @@ CGO_ENABLED=1 GOOS=linux GOARCH=$ARCH go build -v \
     -ldflags="$LDFLAGS" \
     -tags="$TAGS" \
     -o "$OUTPUT/libdbox.so" \
-    .
+    ./dbox
 
 gomobile init 
 CGO_ENABLED=1 GOOS=android GOARCH=arm64 gomobile bind -v \

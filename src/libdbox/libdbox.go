@@ -33,6 +33,3 @@ func Base64Decode(encodedStr *C.char) *C.char {
 	
 	return C.CString(string(decodedBytes))
 }
-
-//export enforce_binding
-func enforce_binding() {}

@@ -2,12 +2,13 @@
 
 package libdbox
 
-// #include <stdlib.h>
-import "C"
 import (
 	"fmt"
 	"unsafe"
 )
+
+// #include <stdlib.h>
+import "C"
 
 //export PrintDebug
 func PrintDebug(message *C.char) {
