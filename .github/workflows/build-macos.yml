@@ -1,4 +1,4 @@
-name: darwin
+name: macos
 
 permissions:
   contents: write
@@ -10,7 +10,7 @@ on:
     branches:
       - "master"
     paths:
-      - ".github/workflows/build-darwin.yml"
+      - ".github/workflows/build-macos.yml"
   workflow_dispatch:
   workflow_run:
     workflows: ["listen"]
@@ -18,7 +18,7 @@ on:
       - completed
 
 jobs:
-  build-darwin:
+  build-macos:
     runs-on: macos-latest
     steps:
       - name: Checkout current repository
@@ -96,20 +96,61 @@ jobs:
 
           cp macos/libs/arm64/libdbox.h macos/libs/universal/
           
-      - name: Create XCFramework
+      - name: Package as Framework
         run: |
-          echo "Creating XCFramework..."
+          echo "Creating traditional Framework bundle instead of XCFramework..."
           cd $GITHUB_WORKSPACE
           
-          xcodebuild -create-xcframework \
-            -library macos/libs/arm64/libdbox.a \
-            -headers macos/libs/arm64/libdbox.h \
-            -library macos/libs/x86_64/libdbox.a \
-            -headers macos/libs/x86_64/libdbox.h \
-            -output macos/libdbox.xcframework
-            
-          echo "XCFramework created successfully"
-          ls -la macos/libdbox.xcframework/
+          # Create Framework directory structure
+          mkdir -p macos/DBoxFramework.framework/Versions/A/Headers
+          mkdir -p macos/DBoxFramework.framework/Versions/A/Resources
+          
+          # Copy universal binary to the framework
+          cp macos/libs/universal/libdbox.a macos/DBoxFramework.framework/Versions/A/DBoxFramework
+          
+          # Copy headers
+          cp macos/libs/universal/libdbox.h macos/DBoxFramework.framework/Versions/A/Headers/
+          
+          # Create Info.plist
+          cat > macos/DBoxFramework.framework/Versions/A/Resources/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DBoxFramework</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.mon-ius.DBoxFramework</string>
+              <key>CFBundleName</key>
+              <string>DBoxFramework</string>
+              <key>CFBundlePackageType</key>
+              <string>FMWK</string>
+              <key>CFBundleVersion</key>
+              <string>1.0</string>
+              <key>CFBundleSupportedPlatforms</key>
+              <array>
+                  <string>MacOSX</string>
+              </array>
+              <key>MinimumOSVersion</key>
+              <string>10.13</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # Create symlinks
+          cd macos/DBoxFramework.framework
+          ln -s Versions/A/DBoxFramework DBoxFramework
+          ln -s Versions/A/Headers Headers
+          ln -s Versions/A/Resources Resources
+          ln -s A Versions/Current
+          
+          cd $GITHUB_WORKSPACE
+          # Set permissions
+          chmod -R 755 macos/DBoxFramework.framework
+          chmod 644 macos/DBoxFramework.framework/Versions/A/Resources/Info.plist
+          
+          echo "Framework created successfully"
+          ls -la macos/DBoxFramework.framework/
 
       - name: Create podspec file
         run: |
@@ -133,10 +174,8 @@ jobs:
             s.osx.deployment_target = '10.13'
             s.swift_version = '5.0'
             
-            s.vendored_frameworks = 'macos/libdbox.xcframework'
+            s.vendored_frameworks = 'macos/DBoxFramework.framework'
             
-            s.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=*]' => 'arm64 x86_64' }
-            s.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=*]' => 'arm64 x86_64' }
             s.requires_arc = true
           end
           EOF
@@ -149,7 +188,7 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          git add macos/libs macos/libdbox.xcframework dbox-macos.podspec
+          git add macos/libs macos/DBoxFramework.framework dbox-macos.podspec
           
           if git diff --staged --quiet; then
             echo "No changes detected in macOS libraries. Skipping commit."
