@@ -30,13 +30,6 @@ jobs:
           go-version: 'stable'
           check-latest: true
 
-      - name: Create output directories
-        run: |
-          mkdir -p windows\lib\amd64
-          mkdir -p windows\lib\arm64
-          mkdir -p windows\lib\386
-        shell: cmd
-
       - name: Navigate to source directory
         run: |
           if exist src (
