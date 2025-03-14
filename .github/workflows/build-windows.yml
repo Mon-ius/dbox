@@ -30,11 +30,6 @@ jobs:
           go-version: 'stable'
           check-latest: true
 
-      - name: Set up MinGW for cross-compilation
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
-
       - name: Create output directories
         run: |
           mkdir -p windows\lib\amd64
@@ -83,6 +78,11 @@ jobs:
             -o "$env:GITHUB_WORKSPACE\windows\lib\arm64\dbox.dll" ^
             .\cmd\dbox
         shell: cmd
+
+      - name: Set up MinGW for cross-compilation
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x86
 
       - name: Build for Windows 386
         run: |
