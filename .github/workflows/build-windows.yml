@@ -33,9 +33,23 @@ jobs:
       - name: Set up MinGW for cross-compilation
         shell: pwsh
         run: |
-          choco install mingw --version=8.1.0 -y
-          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          # Use MSYS2 instead of MinGW directly for better compatibility
+          choco install msys2 -y
+          
+          # Update MSYS2 and install required tools
+          & 'C:\tools\msys64\usr\bin\bash.exe' -lc "pacman -Syu --noconfirm"
+          & 'C:\tools\msys64\usr\bin\bash.exe' -lc "pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-i686-gcc"
+          
+          # Add MSYS2 MinGW paths to system PATH
+          echo "C:\tools\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "C:\tools\msys64\mingw32\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "C:\tools\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          
+          # Verify installation
+          Write-Output "Checking for x86_64-w64-mingw32-gcc:"
+          & where.exe x86_64-w64-mingw32-gcc
+          Write-Output "Checking for i686-w64-mingw32-gcc:"
+          & where.exe i686-w64-mingw32-gcc
 
       - name: Create output directories
         shell: pwsh
@@ -61,11 +75,13 @@ jobs:
         run: |
           Write-Output "Building for Windows x64..."
           Set-Location -Path "$env:WORKING_DIR"
+          
+          # Use direct compiler name that matches MSYS2 installation
+          $env:CGO_ENABLED = "1"
           $env:GOOS = "windows"
           $env:GOARCH = "amd64"
-          $env:CGO_ENABLED = "1"
-          $env:CC = "x86_64-w64-mingw32-gcc"
           
+          # Try with the standard name first
           go build -buildmode=c-shared `
             -trimpath `
             -ldflags="-s -w -buildid=" `
@@ -78,9 +94,11 @@ jobs:
         run: |
           Write-Output "Building for Windows x86..."
           Set-Location -Path "$env:WORKING_DIR"
+          
+          # Use direct compiler name that matches MSYS2 installation
+          $env:CGO_ENABLED = "1"
           $env:GOOS = "windows"
           $env:GOARCH = "386"
-          $env:CGO_ENABLED = "1"
           $env:CC = "i686-w64-mingw32-gcc"
           
           go build -buildmode=c-shared `
@@ -101,6 +119,7 @@ jobs:
             Get-Item "windows\bin\x64\dbox.dll" | Format-List
           } else {
             Write-Error "x64 DLL not found"
+            exit 1
           }
           
           Write-Output "Verifying x86 binary:"
@@ -109,6 +128,7 @@ jobs:
             Get-Item "windows\bin\x86\dbox.dll" | Format-List
           } else {
             Write-Error "x86 DLL not found"
+            exit 1
           }
 
       - name: Commit and push changes
