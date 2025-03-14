@@ -1,0 +1,132 @@
+name: ios
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches:
+      - "master"
+    paths:
+      - ".github/workflows/build-ios.yml"
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["listen"]
+    types:
+      - completed
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 'stable'
+          check-latest: true
+
+      - name: Install gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+          gomobile init
+
+      - name: Create output directories
+        run: |
+          mkdir -p ios/frameworks
+
+      - name: Navigate to source directory
+        run: |
+          if [ -d "src" ]; then
+            cd src
+            echo "Changed working directory to $(pwd)"
+            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
+          else
+            echo "src directory not found, staying in root directory"
+            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
+          fi
+
+      - name: Set up build environment
+        run: |
+          DEVELOPER_DIR=$(xcode-select -p)
+          echo "Using Xcode at: $DEVELOPER_DIR"
+          
+          IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "Using iOS SDK version: $IOS_SDK_VERSION"
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> $GITHUB_ENV
+          echo "IOS_SDK_VERSION=$IOS_SDK_VERSION" >> $GITHUB_ENV
+          echo "IOS_MIN_VERSION=11.0" >> $GITHUB_ENV
+
+      - name: Build for iOS using gomobile
+        run: |
+          echo "Building for iOS using gomobile..."
+          cd $WORKING_DIR
+          export PATH=$PATH:$(go env GOPATH)/bin
+          
+          BUILD_FLAGS="-ldflags=-s -w -buildid="
+          TAGS="with_debug ios"
+          
+          echo "Building framework for iOS devices..."
+          gomobile bind -target=ios \
+            -trimpath \
+            $BUILD_FLAGS \
+            -tags="$TAGS" \
+            -o "$GITHUB_WORKSPACE/ios/frameworks/Dbox-device.framework" \
+            ./cmd/dbox
+            
+          echo "Building framework for iOS simulators..."
+          gomobile bind -target=iossimulator \
+            -trimpath \
+            $BUILD_FLAGS \
+            -tags="$TAGS" \
+            -o "$GITHUB_WORKSPACE/ios/frameworks/Dbox-simulator.framework" \
+            ./cmd/dbox
+
+      - name: Verify the frameworks
+        run: |
+          cd $GITHUB_WORKSPACE
+          
+          echo "Verifying device framework:"
+          ls -la ios/frameworks/Dbox-device.framework
+          xcrun lipo -info ios/frameworks/Dbox-device.framework/Dbox
+          
+          echo "Verifying simulator framework:"
+          ls -la ios/frameworks/Dbox-simulator.framework
+          xcrun lipo -info ios/frameworks/Dbox-simulator.framework/Dbox
+          
+      - name: Create XCFramework
+        run: |
+          cd $GITHUB_WORKSPACE
+          
+          echo "Creating XCFramework..."
+          
+          xcrun xcodebuild -create-xcframework \
+            -framework ios/frameworks/Dbox-device.framework \
+            -framework ios/frameworks/Dbox-simulator.framework \
+            -output ios/libdbox.xcframework
+            
+          echo "XCFramework created successfully"
+          ls -la ios/libdbox.xcframework
+
+      - name: Commit and push changes
+        run: |
+          cd $GITHUB_WORKSPACE
+          
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          git add ios/libdbox.xcframework
+          
+          if git diff --staged --quiet; then
+            echo "No changes detected in iOS frameworks. Skipping commit."
+          else
+            echo "Changes detected in iOS frameworks. Creating commit..."
+            git commit -m "Build iOS XCFramework using gomobile ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
+            git push
+            echo "Successfully pushed changes to repository."
+          fi
