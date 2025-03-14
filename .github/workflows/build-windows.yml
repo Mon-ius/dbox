@@ -63,22 +63,10 @@ jobs:
             -o "$env:GITHUB_WORKSPACE\windows\lib\amd64\dbox.dll" `
             .\cmd\dbox
         shell: pwsh
-
-      - name: Build for Windows ARM64
-        run: |
-          Write-Output "Building for Windows ARM64..."
-          Set-Location $env:WORKING_DIR
-          $env:GOOS = "windows"
-          $env:GOARCH = "arm64"
-          $env:CGO_ENABLED = "1"
-          go build -buildmode=c-shared `
-            -trimpath `
-            -ldflags="-s -w -buildid=" `
-            -tags="with_debug" `
-            -o "$env:GITHUB_WORKSPACE\windows\lib\arm64\dbox.dll" `
-            .\cmd\dbox
-        shell: pwsh
-
+      - name: Set up MinGW for cross-compilation
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x86
       - name: Build for Windows 386
         run: |
           Write-Output "Building for Windows 386..."
