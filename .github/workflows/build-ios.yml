@@ -93,8 +93,7 @@ jobs:
             ios/libs/arm64/libdbox.a \
             ios/libs/x86_64/libdbox.a \
             -output ios/libs/universal/libdbox.a
-          
-          # Also copy the header file to the universal folder
+
           cp ios/libs/arm64/libdbox.h ios/libs/universal/
           
       - name: Create XCFramework
@@ -102,19 +101,24 @@ jobs:
           echo "Creating XCFramework..."
           cd $GITHUB_WORKSPACE
           
-          # Create framework structure for device (arm64)
           mkdir -p ios/DBoxFramework-ios-arm64.framework/Headers
+          mkdir -p ios/DBoxFramework-ios-x86_64-simulator.framework/Headers
+
           cp ios/libs/arm64/libdbox.h ios/DBoxFramework-ios-arm64.framework/Headers/
-          cp ios/libs/arm64/libdbox.a ios/DBoxFramework-ios-arm64.framework/DBoxFramework
+          cp ios/libs/arm64/libdbox.a ios/DBoxFramework-ios-arm64.framework/DBoxFramework-ios-arm64
+          chmod +x ios/DBoxFramework-ios-arm64.framework/DBoxFramework-ios-arm64
+
+          cp ios/libs/x86_64/libdbox.h ios/DBoxFramework-ios-x86_64-simulator.framework/Headers/
+          cp ios/libs/x86_64/libdbox.a ios/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework-ios-x86_64-simulator
+          chmod +x ios/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework-ios-x86_64-simulator
           
-          # Create Info.plist for device framework
           cat > ios/DBoxFramework-ios-arm64.framework/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
-              <string>DBoxFramework</string>
+              <string>DBoxFramework-ios-arm64</string>
               <key>CFBundleIdentifier</key>
               <string>com.mon-ius.DBoxFramework</string>
               <key>CFBundleName</key>
@@ -129,19 +133,13 @@ jobs:
           </plist>
           EOF
           
-          # Create framework structure for simulator (x86_64)
-          mkdir -p ios/DBoxFramework-ios-x86_64-simulator.framework/Headers
-          cp ios/libs/x86_64/libdbox.h ios/DBoxFramework-ios-x86_64-simulator.framework/Headers/
-          cp ios/libs/x86_64/libdbox.a ios/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework
-          
-          # Create Info.plist for simulator framework
           cat > ios/DBoxFramework-ios-x86_64-simulator.framework/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
-              <string>DBoxFramework</string>
+              <string>DBoxFramework-ios-x86_64-simulator</string>
               <key>CFBundleIdentifier</key>
               <string>com.mon-ius.DBoxFramework</string>
               <key>CFBundleName</key>
@@ -155,6 +153,9 @@ jobs:
           </dict>
           </plist>
           EOF
+
+          ls -la ios/DBoxFramework-ios-arm64.framework/
+          ls -la ios/DBoxFramework-ios-x86_64-simulator.framework/
           
           xcodebuild -create-xcframework \
             -framework ios/DBoxFramework-ios-arm64.framework \
