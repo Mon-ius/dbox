@@ -57,93 +57,56 @@ jobs:
         run: |
           echo "Building for macOS arm64..."
           cd $WORKING_DIR
+          
+          TAGS="with_debug macos"
+          LDFLAGS="-s -w -buildid="
+          
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
             CC=$(xcrun --sdk macosx --find clang) \
             CXX=$(xcrun --sdk macosx --find clang++) \
             CGO_CFLAGS="-isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=11.0 -arch arm64" \
             CGO_LDFLAGS="-isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=11.0 -arch arm64" \
-            go build -buildmode=c-archive \
+            go build -v \
+            -buildmode=c-shared \
             -trimpath \
-            -ldflags="-s -w -buildid=" \
-            -tags="with_debug macos" \
-            -o "$GITHUB_WORKSPACE/macos/libs/arm64/libdbox.a" \
+            -buildvcs=false \
+            -ldflags="$LDFLAGS" \
+            -tags="$TAGS" \
+            -o "$GITHUB_WORKSPACE/macos/libs/arm64/libdbox.dylib" \
             ./cmd/dbox
 
       - name: Build for macOS x86_64 (Intel)
         run: |
           echo "Building for macOS x86_64..."
           cd $WORKING_DIR
+          
+          TAGS="with_debug macos"
+          LDFLAGS="-s -w -buildid="
+          
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
             CC=$(xcrun --sdk macosx --find clang) \
             CXX=$(xcrun --sdk macosx --find clang++) \
             CGO_CFLAGS="-isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=10.13 -arch x86_64" \
             CGO_LDFLAGS="-isysroot $(xcrun --sdk macosx --show-sdk-path) -mmacosx-version-min=10.13 -arch x86_64" \
-            go build -buildmode=c-archive \
+            go build -v \
+            -buildmode=c-shared \
             -trimpath \
-            -ldflags="-s -w -buildid=" \
-            -tags="with_debug macos" \
-            -o "$GITHUB_WORKSPACE/macos/libs/x86_64/libdbox.a" \
+            -buildvcs=false \
+            -ldflags="$LDFLAGS" \
+            -tags="$TAGS" \
+            -o "$GITHUB_WORKSPACE/macos/libs/x86_64/libdbox.dylib" \
             ./cmd/dbox
 
-      - name: Create Universal Binary
+      - name: Create Universal Dylib
         run: |
-          echo "Creating universal binary..."
+          echo "Creating universal dylib..."
           cd $GITHUB_WORKSPACE
           lipo -create \
-            macos/libs/arm64/libdbox.a \
-            macos/libs/x86_64/libdbox.a \
-            -output macos/libs/universal/libdbox.a
-
+            macos/libs/arm64/libdbox.dylib \
+            macos/libs/x86_64/libdbox.dylib \
+            -output macos/libs/universal/libdbox.dylib
+          
           cp macos/libs/arm64/libdbox.h macos/libs/universal/
-          
-      - name: Package as Framework
-        run: |
-          echo "Creating traditional Framework bundle instead of XCFramework..."
-          cd $GITHUB_WORKSPACE
-          
-          mkdir -p macos/DBoxFramework.framework/Versions/A/Headers
-          mkdir -p macos/DBoxFramework.framework/Versions/A/Resources
-          
-          cp macos/libs/universal/libdbox.a macos/DBoxFramework.framework/Versions/A/DBoxFramework
-          cp macos/libs/universal/libdbox.h macos/DBoxFramework.framework/Versions/A/Headers/
-          
-          cat > macos/DBoxFramework.framework/Versions/A/Resources/Info.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleExecutable</key>
-              <string>DBoxFramework</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.mon-ius.DBoxFramework</string>
-              <key>CFBundleName</key>
-              <string>DBoxFramework</string>
-              <key>CFBundlePackageType</key>
-              <string>FMWK</string>
-              <key>CFBundleVersion</key>
-              <string>1.0</string>
-              <key>CFBundleSupportedPlatforms</key>
-              <array>
-                  <string>MacOSX</string>
-              </array>
-              <key>MinimumOSVersion</key>
-              <string>10.13</string>
-          </dict>
-          </plist>
-          EOF
-          
-          cd macos/DBoxFramework.framework
-          ln -s Versions/A/DBoxFramework DBoxFramework
-          ln -s Versions/A/Headers Headers
-          ln -s Versions/A/Resources Resources
-          ln -s A Versions/Current
-          
-          cd $GITHUB_WORKSPACE
-          chmod -R 755 macos/DBoxFramework.framework
-          chmod 644 macos/DBoxFramework.framework/Versions/A/Resources/Info.plist
-          
-          echo "Framework created successfully"
-          ls -la macos/DBoxFramework.framework/
 
       - name: Create podspec file
         run: |
@@ -155,9 +118,9 @@ jobs:
           
           cat > dbox-macos.podspec << EOF
           Pod::Spec.new do |s|
-            s.name             = 'DBoxFramework-macOS'
+            s.name             = 'DBox-macOS'
             s.version          = '${VERSION}'
-            s.summary          = 'DBox framework for macOS'
+            s.summary          = 'DBox library for macOS'
             s.description      = 'A cross-platform library compiled for macOS from Go code.'
             s.homepage         = 'https://github.com/${GITHUB_REPOSITORY}'
             s.license          = { :type => 'GNU General Public License v3.0', :file => 'LICENSE' }
@@ -167,7 +130,8 @@ jobs:
             s.osx.deployment_target = '10.13'
             s.swift_version = '5.0'
             
-            s.vendored_frameworks = 'macos/DBoxFramework.framework'
+            s.vendored_libraries = 'macos/libs/universal/libdbox.dylib'
+            s.source_files = 'macos/libs/universal/libdbox.h'
             
             s.requires_arc = true
           end
@@ -185,13 +149,13 @@ jobs:
           git pull --rebase
           git stash pop || true
 
-          git add macos/libs macos/DBoxFramework.framework dbox-macos.podspec
+          git add macos/libs dbox-macos.podspec
           
           if git diff --staged --quiet; then
             echo "No changes detected in macOS libraries. Skipping commit."
           else
             echo "Changes detected in macOS libraries. Creating commit..."
-            git commit -m "Build macOS libraries ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
+            git commit -m "Build macOS dynamic libraries ($(date -u +'%Y-%m-%d %H:%M:%S UTC'))"
             git push
             echo "Successfully pushed changes to repository."
           fi

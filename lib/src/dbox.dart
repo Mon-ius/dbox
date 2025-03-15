@@ -18,8 +18,9 @@ class DoxLibrary {
 
   static DynamicLibrary _dylib() {
     final libraryPath = switch (Platform.operatingSystem) {
-      'macos' || 'ios' => 'lib$_libName.framework/lib$_libName',
+      'ios' => 'lib$_libName.framework/lib$_libName',
       'android' || 'linux' => 'lib$_libName.so',
+      'macos' => 'lib$_libName.dylib',
       'windows' => '$_libName.dll',
       _ => throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}'),
     };
