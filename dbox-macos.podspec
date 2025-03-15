@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
-  s.name             = 'DBoxFramework-macOS'
+  s.name             = 'DBox-macOS'
   s.version          = '0.1.0'
-  s.summary          = 'DBox framework for macOS'
+  s.summary          = 'DBox library for macOS'
   s.description      = 'A cross-platform library compiled for macOS from Go code.'
   s.homepage         = 'https://github.com/Mon-ius/dbox'
   s.license          = { :type => 'GNU General Public License v3.0', :file => 'LICENSE' }
@@ -11,7 +11,8 @@ Pod::Spec.new do |s|
   s.osx.deployment_target = '10.13'
   s.swift_version = '5.0'
   
-  s.vendored_frameworks = 'macos/DBoxFramework.framework'
+  s.vendored_libraries = 'macos/libs/universal/libdbox.dylib'
+  s.source_files = 'macos/libs/universal/libdbox.h'
   
   s.requires_arc = true
 end
