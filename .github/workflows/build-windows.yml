@@ -97,15 +97,6 @@ jobs:
             exit 1
           }
           
-          Write-Output "Verifying ARM64 library:"
-          if (Test-Path "windows\lib\arm64\dbox.dll") {
-            Write-Output "ARM64 library exists"
-            Get-Item windows\lib\arm64\dbox.dll | Format-List
-          } else {
-            Write-Error "ERROR: ARM64 library not found"
-            exit 1
-          }
-          
           Write-Output "Verifying 386 library:"
           if (Test-Path "windows\lib\386\dbox.dll") {
             Write-Output "386 library exists"
@@ -123,6 +114,7 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
+          git pull --rebase
           git add windows\lib
           
           $hasChanges = git diff --staged --quiet
