@@ -35,12 +35,10 @@ jobs:
 
       - name: Install NDK
         run: |
-          # Get latest LTS NDK version
           LATEST_NDK=$(sdkmanager --list | grep -o "ndk;[0-9.]*" | sort -V | tail -1)
           echo "Installing $LATEST_NDK"
           yes | sdkmanager --install "$LATEST_NDK"
           
-          # Extract version number for path
           NDK_VERSION=$(echo $LATEST_NDK | cut -d';' -f2)
           echo "Using NDK version: $NDK_VERSION"
           
@@ -57,7 +55,6 @@ jobs:
 
       - name: Navigate to source directory
         run: |
-          # Check if src directory exists
           if [ -d "src" ]; then
             cd src
             echo "Changed working directory to $(pwd)"
@@ -125,7 +122,9 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
+          git stash -u
           git pull --rebase
+          git stash pop || true
           git add android/src/main/jniLibs
           
           if git diff --staged --quiet; then
