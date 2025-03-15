@@ -9,7 +9,7 @@ OUTPUT="build"
 TAGS="with_debug"
 LDFLAGS="-s -w -buildid="
 
-cd src
+cd external
 CGO_ENABLED=1 GOOS=linux GOARCH=$ARCH go build -v \
     -buildmode=c-shared \
     -trimpath \

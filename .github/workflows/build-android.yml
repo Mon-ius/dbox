@@ -1,5 +1,9 @@
 name: android
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  SOURCE_DIR: external
+
 permissions:
   contents: write
 
@@ -45,24 +49,23 @@ jobs:
           echo "ANDROID_SDK=$ANDROID_HOME" >> $GITHUB_ENV
           echo "NDK_BIN=$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
 
+      - name: Set up environment variables
+        run: |
+          echo "BUILD_DIR=$GITHUB_WORKSPACE/platforms/android" >> $GITHUB_ENV
+
+          if [ -d "$SOURCE_DIR" ]; then
+            echo "WORKING_DIR=$GITHUB_WORKSPACE/$SOURCE_DIR" >> $GITHUB_ENV
+          else
+            echo "WORKING_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          fi
+
       - name: Clean and Create output directories
         run: |
-          rm -rf android
-          mkdir -p android/src/main/jniLibs/arm64-v8a
-          mkdir -p android/src/main/jniLibs/armeabi-v7a
-          mkdir -p android/src/main/jniLibs/x86_64
-          mkdir -p android/src/main/jniLibs/x86
-
-      - name: Navigate to source directory
-        run: |
-          if [ -d "src" ]; then
-            cd src
-            echo "Changed working directory to $(pwd)"
-            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
-          else
-            echo "src directory not found, staying in root directory"
-            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
-          fi
+          rm -rf $BUILD_DIR
+          mkdir -p $BUILD_DIR/src/main/jniLibs/arm64-v8a
+          mkdir -p $BUILD_DIR/src/main/jniLibs/armeabi-v7a
+          mkdir -p $BUILD_DIR/src/main/jniLibs/x86_64
+          mkdir -p $BUILD_DIR/src/main/jniLibs/x86
 
       - name: Build for arm64-v8a
         run: |
@@ -74,7 +77,7 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$GITHUB_WORKSPACE/android/src/main/jniLibs/arm64-v8a/libdbox.so" \
+            -o "$BUILD_DIR/src/main/jniLibs/arm64-v8a/libdbox.so" \
             ./cmd/dbox
 
       - name: Build for armeabi-v7a
@@ -87,7 +90,7 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$GITHUB_WORKSPACE/android/src/main/jniLibs/armeabi-v7a/libdbox.so" \
+            -o "$BUILD_DIR/src/main/jniLibs/armeabi-v7a/libdbox.so" \
             ./cmd/dbox
 
       - name: Build for x86_64
@@ -100,7 +103,7 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$GITHUB_WORKSPACE/android/src/main/jniLibs/x86_64/libdbox.so" \
+            -o "$BUILD_DIR/src/main/jniLibs/x86_64/libdbox.so" \
             ./cmd/dbox
 
       - name: Build for x86
@@ -113,7 +116,7 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$GITHUB_WORKSPACE/android/src/main/jniLibs/x86/libdbox.so" \
+            -o "$BUILD_DIR/src/main/jniLibs/x86/libdbox.so" \
             ./cmd/dbox
 
       - name: Commit and push changes
@@ -125,7 +128,7 @@ jobs:
           git stash -u
           git pull --rebase
           git stash pop || true
-          git add android/src/main/jniLibs
+          git add $BUILD_DIR/src/main/jniLibs
           
           if git diff --staged --quiet; then
             echo "No changes detected in Android libraries. Skipping commit."

@@ -1,5 +1,9 @@
 name: ios
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  SOURCE_DIR: external
+
 permissions:
   contents: write
 
@@ -35,23 +39,22 @@ jobs:
           xcode-select --print-path
           sudo xcode-select --switch /Applications/Xcode.app
 
+      - name: Set up environment variables
+        run: |
+          echo "BUILD_DIR=$GITHUB_WORKSPACE/platforms/ios" >> $GITHUB_ENV
+
+          if [ -d "$SOURCE_DIR" ]; then
+            echo "WORKING_DIR=$GITHUB_WORKSPACE/$SOURCE_DIR" >> $GITHUB_ENV
+          else
+            echo "WORKING_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          fi
+
       - name: Clean and Create output directories
         run: |
-          rm -rf ios
-          mkdir -p ios/libs/arm64
-          mkdir -p ios/libs/x86_64
-          mkdir -p ios/libs/universal
-
-      - name: Navigate to source directory
-        run: |
-          if [ -d "src" ]; then
-            cd src
-            echo "Changed working directory to $(pwd)"
-            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
-          else
-            echo "src directory not found, staying in root directory"
-            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
-          fi
+          rm -rf $BUILD_DIR
+          mkdir -p $BUILD_DIR/libs/arm64
+          mkdir -p $BUILD_DIR/libs/x86_64
+          mkdir -p $BUILD_DIR/libs/universal
 
       - name: Build for iOS arm64 (device)
         run: |
@@ -66,7 +69,7 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug ios" \
-            -o "$GITHUB_WORKSPACE/ios/libs/arm64/libdbox.a" \
+            -o "$BUILD_DIR/libs/arm64/libdbox.a" \
             ./cmd/dbox
 
       - name: Build for iOS x86_64 (simulator)
@@ -82,7 +85,7 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug ios" \
-            -o "$GITHUB_WORKSPACE/ios/libs/x86_64/libdbox.a" \
+            -o "$BUILD_DIR/libs/x86_64/libdbox.a" \
             ./cmd/dbox
 
       - name: Create Universal Binary
@@ -90,29 +93,29 @@ jobs:
           echo "Creating universal binary..."
           cd $GITHUB_WORKSPACE
           lipo -create \
-            ios/libs/arm64/libdbox.a \
-            ios/libs/x86_64/libdbox.a \
-            -output ios/libs/universal/libdbox.a
+            $BUILD_DIR/libs/arm64/libdbox.a \
+            $BUILD_DIR/libs/x86_64/libdbox.a \
+            -output $BUILD_DIR/libs/universal/libdbox.a
 
-          cp ios/libs/arm64/libdbox.h ios/libs/universal/
+          cp $BUILD_DIR/libs/arm64/libdbox.h $BUILD_DIR/libs/universal/
           
       - name: Create XCFramework
         run: |
           echo "Creating XCFramework..."
           cd $GITHUB_WORKSPACE
           
-          mkdir -p ios/DBoxFramework-ios-arm64.framework/Headers
-          mkdir -p ios/DBoxFramework-ios-x86_64-simulator.framework/Headers
+          mkdir -p $BUILD_DIR/DBoxFramework-ios-arm64.framework/Headers
+          mkdir -p $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/Headers
 
-          cp ios/libs/arm64/libdbox.h ios/DBoxFramework-ios-arm64.framework/Headers/
-          cp ios/libs/arm64/libdbox.a ios/DBoxFramework-ios-arm64.framework/DBoxFramework-ios-arm64
-          chmod +x ios/DBoxFramework-ios-arm64.framework/DBoxFramework-ios-arm64
+          cp $BUILD_DIR/libs/arm64/libdbox.h $BUILD_DIR/DBoxFramework-ios-arm64.framework/Headers/
+          cp $BUILD_DIR/libs/arm64/libdbox.a $BUILD_DIR/DBoxFramework-ios-arm64.framework/DBoxFramework-ios-arm64
+          chmod +x $BUILD_DIR/DBoxFramework-ios-arm64.framework/DBoxFramework-ios-arm64
 
-          cp ios/libs/x86_64/libdbox.h ios/DBoxFramework-ios-x86_64-simulator.framework/Headers/
-          cp ios/libs/x86_64/libdbox.a ios/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework-ios-x86_64-simulator
-          chmod +x ios/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework-ios-x86_64-simulator
+          cp $BUILD_DIR/libs/x86_64/libdbox.h $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/Headers/
+          cp $BUILD_DIR/libs/x86_64/libdbox.a $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework-ios-x86_64-simulator
+          chmod +x $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework-ios-x86_64-simulator
           
-          cat > ios/DBoxFramework-ios-arm64.framework/Info.plist << EOF
+          cat > $BUILD_DIR/DBoxFramework-ios-arm64.framework/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -133,7 +136,7 @@ jobs:
           </plist>
           EOF
           
-          cat > ios/DBoxFramework-ios-x86_64-simulator.framework/Info.plist << EOF
+          cat > $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -154,13 +157,13 @@ jobs:
           </plist>
           EOF
 
-          ls -la ios/DBoxFramework-ios-arm64.framework/
-          ls -la ios/DBoxFramework-ios-x86_64-simulator.framework/
+          ls -la $BUILD_DIR/DBoxFramework-ios-arm64.framework/
+          ls -la $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/
           
           xcodebuild -create-xcframework \
-            -framework ios/DBoxFramework-ios-arm64.framework \
-            -framework ios/DBoxFramework-ios-x86_64-simulator.framework \
-            -output ios/libdbox.xcframework
+            -framework $BUILD_DIR/DBoxFramework-ios-arm64.framework \
+            -framework $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework \
+            -output $BUILD_DIR/libdbox.xcframework
 
       - name: Create podspec file
         run: |
@@ -184,7 +187,7 @@ jobs:
             s.ios.deployment_target = '13.0'
             s.swift_version = '5.0'
             
-            s.vendored_frameworks = 'ios/libdbox.xcframework'
+            s.vendored_frameworks = 'platforms/ios/libdbox.xcframework'
             
             s.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64' }
             s.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64' }
@@ -203,7 +206,7 @@ jobs:
           git stash -u
           git pull --rebase
           git stash pop || true
-          git add ios/libs ios/libdbox.xcframework
+          git add $BUILD_DIR/libs $BUILD_DIR/libdbox.xcframework dbox.podspec
           
           if git diff --staged --quiet; then
             echo "No changes detected in iOS libraries. Skipping commit."

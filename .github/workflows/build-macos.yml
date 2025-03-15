@@ -1,5 +1,9 @@
 name: macos
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  SOURCE_DIR: external
+
 permissions:
   contents: write
 
@@ -35,23 +39,22 @@ jobs:
           xcode-select --print-path
           sudo xcode-select --switch /Applications/Xcode.app
 
+      - name: Set up environment variables
+        run: |
+          echo "BUILD_DIR=$GITHUB_WORKSPACE/platforms/macos" >> $GITHUB_ENV
+
+          if [ -d "$SOURCE_DIR" ]; then
+            echo "WORKING_DIR=$GITHUB_WORKSPACE/$SOURCE_DIR" >> $GITHUB_ENV
+          else
+            echo "WORKING_DIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          fi
+
       - name: Clean and Create output directories
         run: |
-          rm -rf macos
-          mkdir -p macos/libs/arm64
-          mkdir -p macos/libs/amd64
-          mkdir -p macos/libs/universal
-
-      - name: Navigate to source directory
-        run: |
-          if [ -d "src" ]; then
-            cd src
-            echo "Changed working directory to $(pwd)"
-            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
-          else
-            echo "src directory not found, staying in root directory"
-            echo "WORKING_DIR=$(pwd)" >> $GITHUB_ENV
-          fi
+          rm -rf $BUILD_DIR
+          mkdir -p $BUILD_DIR/libs/arm64
+          mkdir -p $BUILD_DIR/libs/amd64
+          mkdir -p $BUILD_DIR/libs/universal
 
       - name: Build for macOS arm64 (Apple Silicon)
         run: |
@@ -72,7 +75,7 @@ jobs:
             -buildvcs=false \
             -ldflags="$LDFLAGS" \
             -tags="$TAGS" \
-            -o "$GITHUB_WORKSPACE/macos/libs/arm64/libdbox.dylib" \
+            -o "$BUILD_DIR/libs/arm64/libdbox.dylib" \
             ./cmd/dbox
 
       - name: Build for macOS amd64 (Intel)
@@ -94,7 +97,7 @@ jobs:
             -buildvcs=false \
             -ldflags="$LDFLAGS" \
             -tags="$TAGS" \
-            -o "$GITHUB_WORKSPACE/macos/libs/amd64/libdbox.dylib" \
+            -o "$BUILD_DIR/libs/amd64/libdbox.dylib" \
             ./cmd/dbox
 
       - name: Create Universal Dylib
@@ -102,42 +105,42 @@ jobs:
           echo "Creating universal dylib..."
           cd $GITHUB_WORKSPACE
           lipo -create \
-            macos/libs/arm64/libdbox.dylib \
-            macos/libs/amd64/libdbox.dylib \
-            -output macos/libs/universal/libdbox.dylib
+            $BUILD_DIR/libs/arm64/libdbox.dylib \
+            $BUILD_DIR/libs/amd64/libdbox.dylib \
+            -output $BUILD_DIR/libs/universal/libdbox.dylib
           
-          cp macos/libs/arm64/libdbox.h macos/libs/universal/
+          cp $BUILD_DIR/libs/arm64/libdbox.h $BUILD_DIR/libs/universal/
 
-      - name: Create podspec file
-        run: |
-          echo "Creating podspec file..."
-          cd $GITHUB_WORKSPACE
+      # - name: Create podspec file
+      #   run: |
+      #     echo "Creating podspec file..."
+      #     cd $GITHUB_WORKSPACE
 
-          GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
-          VERSION=${GIT_TAG#v}
+      #     GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+      #     VERSION=${GIT_TAG#v}
           
-          cat > dbox-macos.podspec << EOF
-          Pod::Spec.new do |s|
-            s.name             = 'DBox-macOS'
-            s.version          = '${VERSION}'
-            s.summary          = 'DBox library for macOS'
-            s.description      = 'A cross-platform library compiled for macOS from Go code.'
-            s.homepage         = 'https://github.com/${GITHUB_REPOSITORY}'
-            s.license          = { :type => 'GNU General Public License v3.0', :file => 'LICENSE' }
-            s.author           = { 'M0nius' => 'm0niusplus@gmail.com' }
-            s.source           = { :git => 'https://github.com/${GITHUB_REPOSITORY}.git', :tag => s.version.to_s }
+      #     cat > dbox-macos.podspec << EOF
+      #     Pod::Spec.new do |s|
+      #       s.name             = 'DBox-macOS'
+      #       s.version          = '${VERSION}'
+      #       s.summary          = 'DBox library for macOS'
+      #       s.description      = 'A cross-platform library compiled for macOS from Go code.'
+      #       s.homepage         = 'https://github.com/${GITHUB_REPOSITORY}'
+      #       s.license          = { :type => 'GNU General Public License v3.0', :file => 'LICENSE' }
+      #       s.author           = { 'M0nius' => 'm0niusplus@gmail.com' }
+      #       s.source           = { :git => 'https://github.com/${GITHUB_REPOSITORY}.git', :tag => s.version.to_s }
             
-            s.osx.deployment_target = '10.13'
-            s.swift_version = '5.0'
+      #       s.osx.deployment_target = '10.13'
+      #       s.swift_version = '5.0'
             
-            s.vendored_libraries = 'macos/libs/universal/libdbox.dylib'
-            s.source_files = 'macos/libs/universal/libdbox.h'
+      #       s.vendored_libraries = 'platforms/macos/libs/universal/libdbox.dylib'
+      #       s.source_files = 'platforms/macos/libs/universal/libdbox.h'
             
-            s.requires_arc = true
-          end
-          EOF
+      #       s.requires_arc = true
+      #     end
+      #     EOF
           
-          echo "Created podspec file for version ${VERSION}"
+      #     echo "Created podspec file for version ${VERSION}"
 
       - name: Commit and push changes
         run: |
@@ -149,7 +152,8 @@ jobs:
           git pull --rebase
           git stash pop || true
 
-          git add macos/libs dbox-macos.podspec
+          # git add $BUILD_DIR/libs dbox-macos.podspec
+          git add $BUILD_DIR/libs
           
           if git diff --staged --quiet; then
             echo "No changes detected in macOS libraries. Skipping commit."

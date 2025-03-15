@@ -114,8 +114,9 @@ class dbox {
       _enforce_bindingPtr.asFunction<void Function()>();
 }
 
-typedef ptrdiff_t = ffi.Long;
-typedef Dartptrdiff_t = int;
+typedef __darwin_ptrdiff_t = ffi.Long;
+typedef Dart__darwin_ptrdiff_t = int;
+typedef ptrdiff_t = __darwin_ptrdiff_t;
 
 final class _GoString_ extends ffi.Struct {
   external ffi.Pointer<ffi.Char> p;

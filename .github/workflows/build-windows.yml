@@ -1,5 +1,9 @@
 name: windows
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  SOURCE_DIR: external
+
 permissions:
   contents: write
 
@@ -30,26 +34,25 @@ jobs:
           go-version: 'stable'
           check-latest: true
 
-      - name: Clean and Create output directories
+      - name: Set up environment variables
         run: |
-          if (Test-Path -Path "windows") {
-            Remove-Item -Path "windows" -Recurse -Force
+          echo "BUILD_DIR=$env:GITHUB_WORKSPACE\platforms\windows" >> $env:GITHUB_ENV
+          
+          if (Test-Path "$env:SOURCE_DIR") {
+            echo "WORKING_DIR=$env:GITHUB_WORKSPACE\$env:SOURCE_DIR" >> $env:GITHUB_ENV
+          } else {
+            echo "WORKING_DIR=$env:GITHUB_WORKSPACE" >> $env:GITHUB_ENV
           }
-          New-Item -Path "windows\lib\amd64" -ItemType Directory -Force
-          New-Item -Path "windows\lib\arm64" -ItemType Directory -Force
-          New-Item -Path "windows\lib\386" -ItemType Directory -Force
         shell: pwsh
 
-      - name: Navigate to source directory
+      - name: Clean and Create output directories
         run: |
-          if (Test-Path "src") {
-            Set-Location -Path "src"
-            Write-Output "Changed working directory to $PWD"
-            echo "WORKING_DIR=$PWD" >> $env:GITHUB_ENV
-          } else {
-            Write-Output "src directory not found, staying in root directory"
-            echo "WORKING_DIR=$PWD" >> $env:GITHUB_ENV
+          if (Test-Path -Path "$env:BUILD_DIR") {
+            Remove-Item -Path "$env:BUILD_DIR" -Recurse -Force
           }
+          New-Item -Path "$env:BUILD_DIR\lib\amd64" -ItemType Directory -Force
+          New-Item -Path "$env:BUILD_DIR\lib\arm64" -ItemType Directory -Force
+          New-Item -Path "$env:BUILD_DIR\lib\386" -ItemType Directory -Force
         shell: pwsh
 
       - name: Build for Windows AMD64
@@ -63,7 +66,7 @@ jobs:
             -trimpath `
             -ldflags="-s -w -buildid=" `
             -tags="with_debug" `
-            -o "$env:GITHUB_WORKSPACE\windows\lib\amd64\dbox.dll" `
+            -o "$env:BUILD_DIR\lib\amd64\dbox.dll" `
             .\cmd\dbox
         shell: pwsh
 
@@ -84,7 +87,7 @@ jobs:
             -trimpath `
             -ldflags="-s -w -buildid=" `
             -tags="with_debug" `
-            -o "$env:GITHUB_WORKSPACE\windows\lib\386\dbox.dll" `
+            -o "$env:BUILD_DIR\lib\386\dbox.dll" `
             .\cmd\dbox
         shell: pwsh
 
@@ -93,18 +96,18 @@ jobs:
           Set-Location $env:GITHUB_WORKSPACE
           
           Write-Output "Verifying AMD64 library:"
-          if (Test-Path "windows\lib\amd64\dbox.dll") {
+          if (Test-Path "$env:BUILD_DIR\lib\amd64\dbox.dll") {
             Write-Output "AMD64 library exists"
-            Get-Item windows\lib\amd64\dbox.dll | Format-List
+            Get-Item $env:BUILD_DIR\lib\amd64\dbox.dll | Format-List
           } else {
             Write-Error "ERROR: AMD64 library not found"
             exit 1
           }
           
           Write-Output "Verifying 386 library:"
-          if (Test-Path "windows\lib\386\dbox.dll") {
+          if (Test-Path "$env:BUILD_DIR\lib\386\dbox.dll") {
             Write-Output "386 library exists"
-            Get-Item windows\lib\386\dbox.dll | Format-List
+            Get-Item $env:BUILD_DIR\lib\386\dbox.dll | Format-List
           } else {
             Write-Error "ERROR: 386 library not found"
             exit 1
@@ -121,7 +124,7 @@ jobs:
           git stash -u
           git pull --rebase
           git stash pop || true
-          git add windows\lib
+          git add $env:BUILD_DIR\lib
           
           $hasChanges = git diff --staged --quiet
           if ($LASTEXITCODE -eq 0) {

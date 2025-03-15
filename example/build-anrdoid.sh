@@ -1,7 +1,7 @@
 #!/bin/dash
 
 GOOS=android
-OUTPUT="../android/src/main/jniLibs"
+OUTPUT="../platforms/android/src/main/jniLibs"
 TAGS="with_debug"
 LDFLAGS="-s -w -buildid="
 ANDROID_SDK=$HOME/Android/Sdk
