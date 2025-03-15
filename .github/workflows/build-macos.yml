@@ -39,7 +39,7 @@ jobs:
         run: |
           rm -rf macos
           mkdir -p macos/libs/arm64
-          mkdir -p macos/libs/x86_64
+          mkdir -p macos/libs/amd64
           mkdir -p macos/libs/universal
 
       - name: Navigate to source directory
@@ -75,9 +75,9 @@ jobs:
             -o "$GITHUB_WORKSPACE/macos/libs/arm64/libdbox.dylib" \
             ./cmd/dbox
 
-      - name: Build for macOS x86_64 (Intel)
+      - name: Build for macOS amd64 (Intel)
         run: |
-          echo "Building for macOS x86_64..."
+          echo "Building for macOS amd64..."
           cd $WORKING_DIR
           
           TAGS="with_debug macos"
@@ -94,7 +94,7 @@ jobs:
             -buildvcs=false \
             -ldflags="$LDFLAGS" \
             -tags="$TAGS" \
-            -o "$GITHUB_WORKSPACE/macos/libs/x86_64/libdbox.dylib" \
+            -o "$GITHUB_WORKSPACE/macos/libs/amd64/libdbox.dylib" \
             ./cmd/dbox
 
       - name: Create Universal Dylib
@@ -103,7 +103,7 @@ jobs:
           cd $GITHUB_WORKSPACE
           lipo -create \
             macos/libs/arm64/libdbox.dylib \
-            macos/libs/x86_64/libdbox.dylib \
+            macos/libs/amd64/libdbox.dylib \
             -output macos/libs/universal/libdbox.dylib
           
           cp macos/libs/arm64/libdbox.h macos/libs/universal/
