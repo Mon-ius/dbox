@@ -30,8 +30,11 @@ jobs:
           go-version: 'stable'
           check-latest: true
 
-      - name: Create output directories
+      - name: Clean and Create output directories
         run: |
+          if (Test-Path -Path "windows") {
+            Remove-Item -Path "windows" -Recurse -Force
+          }
           New-Item -Path "windows\lib\amd64" -ItemType Directory -Force
           New-Item -Path "windows\lib\arm64" -ItemType Directory -Force
           New-Item -Path "windows\lib\386" -ItemType Directory -Force

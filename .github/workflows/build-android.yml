@@ -47,8 +47,9 @@ jobs:
           echo "ANDROID_SDK=$ANDROID_HOME" >> $GITHUB_ENV
           echo "NDK_BIN=$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
 
-      - name: Create output directories
+      - name: Clean and Create output directories
         run: |
+          rm -rf android
           mkdir -p android/src/main/jniLibs/arm64-v8a
           mkdir -p android/src/main/jniLibs/armeabi-v7a
           mkdir -p android/src/main/jniLibs/x86_64

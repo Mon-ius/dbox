@@ -35,8 +35,9 @@ jobs:
           xcode-select --print-path
           sudo xcode-select --switch /Applications/Xcode.app
 
-      - name: Create output directories
+      - name: Clean and Create output directories
         run: |
+          rm -rf macos
           mkdir -p macos/libs/arm64
           mkdir -p macos/libs/x86_64
           mkdir -p macos/libs/universal

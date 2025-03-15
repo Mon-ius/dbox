@@ -35,15 +35,15 @@ jobs:
           xcode-select --print-path
           sudo xcode-select --switch /Applications/Xcode.app
 
-      - name: Create output directories
+      - name: Clean and Create output directories
         run: |
+          rm -rf ios
           mkdir -p ios/libs/arm64
           mkdir -p ios/libs/x86_64
           mkdir -p ios/libs/universal
 
       - name: Navigate to source directory
         run: |
-          # Check if src directory exists
           if [ -d "src" ]; then
             cd src
             echo "Changed working directory to $(pwd)"
