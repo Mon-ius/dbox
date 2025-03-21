@@ -30,8 +30,8 @@ jobs:
       target: 'android'
 
   build-android:
-    needs: parse-info
     runs-on: ubuntu-latest
+    needs: parse-info
     env:
       PKG: ${{ needs.parse-info.outputs.name_lower }}
     steps:

@@ -30,8 +30,8 @@ jobs:
       target: 'ios'
 
   build-ios:
-    needs: parse-info
     runs-on: macos-latest
+    needs: parse-info
     env:
       PKG: ${{ needs.parse-info.outputs.name_lower }}
       PKG_TITLE: ${{ needs.parse-info.outputs.name_full }}

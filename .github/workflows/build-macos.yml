@@ -30,8 +30,8 @@ jobs:
       target: 'macos'
 
   build-macos:
-    needs: parse-info
     runs-on: macos-latest
+    needs: parse-info
     env:
       PKG: ${{ needs.parse-info.outputs.name_lower }}
     steps:
