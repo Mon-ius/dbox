@@ -178,7 +178,7 @@ jobs:
       - name: Create podspec file
         run: |
           echo "Creating podspec file..."
-          cd $$BUILD_DIR
+          cd $BUILD_DIR
 
           GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
           VERSION=${GIT_TAG#v}
