@@ -1,0 +1,33 @@
+name: create-tag
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        default: '0'
+        required: true
+        type: string
+    outputs:
+      tag:
+        description: "Pushed tag version"
+        value: ${{ jobs.create-tag.outputs.tag }}
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.push.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+      - id: push
+        run: |
+          version="${{ inputs.version }}"
+          git tag $version && git push --tags || true
+          echo tag=$version >> $GITHUB_OUTPUT
+        name: Push Tag
+        shell: bash
