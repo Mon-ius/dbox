@@ -2,6 +2,7 @@ name: linux
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BUILD_DIR: $GITHUB_WORKSPACE/native/linux
   SOURCE_DIR: external
 
 permissions:
@@ -50,8 +51,6 @@ jobs:
 
       - name: Set up environment variables
         run: |
-          echo "BUILD_DIR=$GITHUB_WORKSPACE/platforms/linux" >> $GITHUB_ENV
-
           if [ -d "$SOURCE_DIR" ]; then
             echo "WORKING_DIR=$GITHUB_WORKSPACE/$SOURCE_DIR" >> $GITHUB_ENV
           else

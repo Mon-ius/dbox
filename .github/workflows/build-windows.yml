@@ -2,6 +2,7 @@ name: windows
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BUILD_DIR: $GITHUB_WORKSPACE/native/windows
   SOURCE_DIR: external
 
 permissions:
@@ -43,7 +44,6 @@ jobs:
 
       - name: Set up environment variables
         run: |
-          echo "BUILD_DIR=$env:GITHUB_WORKSPACE\platforms\windows" >> $env:GITHUB_ENV
           echo "PKG=${{ needs.parse-info.outputs.name_lower }}" >> $env:GITHUB_ENV
           
           if (Test-Path "$env:SOURCE_DIR") {
