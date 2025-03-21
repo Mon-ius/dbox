@@ -18,13 +18,22 @@ on:
       - ".github/workflows/build-windows.yml"
   workflow_dispatch:
   workflow_run:
-    workflows: ["listen"]
+    workflows: ["listen", "ci"]
     types:
       - completed
 
 jobs:
+  parse-info:
+    uses: ./.github/workflows/parse-info.yml
+    with:
+      path: 'pubspec.yaml'
+      target: 'windows'
+
   build-windows:
+    needs: parse-info
     runs-on: windows-latest
+    env:
+      PKG: ${{ needs.parse-info.outputs.name_lower }}
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -67,8 +76,8 @@ jobs:
             -trimpath `
             -ldflags="-s -w -buildid=" `
             -tags="with_debug" `
-            -o "$env:BUILD_DIR\lib\amd64\dbox.dll" `
-            .\cmd\dbox
+            -o "$env:BUILD_DIR\lib\amd64\$env:PKG.dll" `
+            .\cmd\$env:PKG
         shell: pwsh
 
       - name: Set up MinGW for cross-compilation
@@ -88,8 +97,8 @@ jobs:
             -trimpath `
             -ldflags="-s -w -buildid=" `
             -tags="with_debug" `
-            -o "$env:BUILD_DIR\lib\386\dbox.dll" `
-            .\cmd\dbox
+            -o "$env:BUILD_DIR\lib\386\$env:PKG.dll" `
+            .\cmd\$env:PKG
         shell: pwsh
 
       - name: Verify the libraries
@@ -97,18 +106,18 @@ jobs:
           Set-Location $env:GITHUB_WORKSPACE
           
           Write-Output "Verifying AMD64 library:"
-          if (Test-Path "$env:BUILD_DIR\lib\amd64\dbox.dll") {
+          if (Test-Path "$env:BUILD_DIR\lib\amd64\$env:PKG.dll") {
             Write-Output "AMD64 library exists"
-            Get-Item $env:BUILD_DIR\lib\amd64\dbox.dll | Format-List
+            Get-Item $env:BUILD_DIR\lib\amd64\$env:PKG.dll | Format-List
           } else {
             Write-Error "ERROR: AMD64 library not found"
             exit 1
           }
           
           Write-Output "Verifying 386 library:"
-          if (Test-Path "$env:BUILD_DIR\lib\386\dbox.dll") {
+          if (Test-Path "$env:BUILD_DIR\lib\386\$env:PKG.dll") {
             Write-Output "386 library exists"
-            Get-Item $env:BUILD_DIR\lib\386\dbox.dll | Format-List
+            Get-Item $env:BUILD_DIR\lib\386\$env:PKG.dll | Format-List
           } else {
             Write-Error "ERROR: 386 library not found"
             exit 1
