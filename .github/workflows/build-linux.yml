@@ -51,6 +51,7 @@ jobs:
 
       - name: Set up environment variables
         run: |
+          echo "BUILD_DIR=$GITHUB_WORKSPACE/$BUILD_DIR" >> $GITHUB_ENV
           if [ -d "$SOURCE_DIR" ]; then
             echo "WORKING_DIR=$GITHUB_WORKSPACE/$SOURCE_DIR" >> $GITHUB_ENV
           else
@@ -66,9 +67,9 @@ jobs:
           mkdir -p $BUILD_DIR/lib/armv7
 
       - name: Build for Linux AMD64
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           echo "Building for Linux AMD64..."
-          cd $WORKING_DIR
           GOOS=linux GOARCH=amd64 CGO_ENABLED=1 \
             go build -buildmode=c-shared \
             -trimpath \
@@ -90,9 +91,9 @@ jobs:
             ./cmd/${PKG}
 
       - name: Build for Linux 386
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           echo "Building for Linux 386..."
-          cd $WORKING_DIR
           GOOS=linux GOARCH=386 CGO_ENABLED=1 CC=i686-linux-gnu-gcc \
             go build -buildmode=c-shared \
             -trimpath \
@@ -102,9 +103,9 @@ jobs:
             ./cmd/${PKG}
 
       - name: Build for Linux ARMv7
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           echo "Building for Linux ARMv7..."
-          cd $WORKING_DIR
           GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=1 CC=arm-linux-gnueabihf-gcc \
             go build -buildmode=c-shared \
             -trimpath \

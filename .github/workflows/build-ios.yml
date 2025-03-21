@@ -52,6 +52,7 @@ jobs:
 
       - name: Set up environment variables
         run: |
+          echo "BUILD_DIR=$GITHUB_WORKSPACE/$BUILD_DIR" >> $GITHUB_ENV
           if [ -d "$SOURCE_DIR" ]; then
             echo "WORKING_DIR=$GITHUB_WORKSPACE/$SOURCE_DIR" >> $GITHUB_ENV
           else
@@ -66,9 +67,9 @@ jobs:
           mkdir -p $BUILD_DIR/libs/universal
 
       - name: Build for iOS arm64 (device)
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           echo "Building for iOS arm64..."
-          cd $WORKING_DIR
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
             CC=$(xcrun --sdk iphoneos --find clang) \
             CXX=$(xcrun --sdk iphoneos --find clang++) \
@@ -82,9 +83,9 @@ jobs:
             ./cmd/${PKG}
 
       - name: Build for iOS x86_64 (simulator)
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           echo "Building for iOS simulator (x86_64)..."
-          cd $WORKING_DIR
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
             CC=$(xcrun --sdk iphonesimulator --find clang) \
             CXX=$(xcrun --sdk iphonesimulator --find clang++) \

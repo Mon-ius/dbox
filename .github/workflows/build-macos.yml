@@ -51,6 +51,7 @@ jobs:
 
       - name: Set up environment variables
         run: |
+          echo "BUILD_DIR=$GITHUB_WORKSPACE/$BUILD_DIR" >> $GITHUB_ENV
           if [ -d "$SOURCE_DIR" ]; then
             echo "WORKING_DIR=$GITHUB_WORKSPACE/$SOURCE_DIR" >> $GITHUB_ENV
           else
@@ -65,10 +66,9 @@ jobs:
           mkdir -p $BUILD_DIR/libs/universal
 
       - name: Build for macOS arm64 (Apple Silicon)
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           echo "Building for macOS arm64..."
-          cd $WORKING_DIR
-          
           TAGS="with_debug macos"
           LDFLAGS="-s -w -buildid="
           
@@ -87,10 +87,9 @@ jobs:
             ./cmd/${PKG}
 
       - name: Build for macOS amd64 (Intel)
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           echo "Building for macOS amd64..."
-          cd $WORKING_DIR
-          
           TAGS="with_debug macos"
           LDFLAGS="-s -w -buildid="
           
@@ -128,7 +127,6 @@ jobs:
           git pull --rebase
           git stash pop || true
 
-          # git add $BUILD_DIR/libs ${PKG}-macos.podspec
           git add $BUILD_DIR/libs
           
           if git diff --staged --quiet; then
