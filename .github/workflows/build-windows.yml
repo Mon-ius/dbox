@@ -2,7 +2,7 @@ name: windows
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  BUILD_DIR: native/windows
+  BUILD_DIR: native\windows
   SOURCE_DIR: external
 
 permissions:
