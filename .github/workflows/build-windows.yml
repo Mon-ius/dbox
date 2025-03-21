@@ -2,7 +2,7 @@ name: windows
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  BUILD_DIR: $GITHUB_WORKSPACE/native/windows
+  BUILD_DIR: native/windows
   SOURCE_DIR: external
 
 permissions:
@@ -101,8 +101,6 @@ jobs:
 
       - name: Verify the libraries
         run: |
-          Set-Location $env:GITHUB_WORKSPACE
-          
           Write-Output "Verifying AMD64 library:"
           if (Test-Path "$env:BUILD_DIR\lib\amd64\$env:PKG.dll") {
             Write-Output "AMD64 library exists"
@@ -124,8 +122,6 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          Set-Location $env:GITHUB_WORKSPACE
-          
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           

@@ -2,7 +2,7 @@ name: linux
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  BUILD_DIR: $GITHUB_WORKSPACE/native/linux
+  BUILD_DIR: native/linux
   SOURCE_DIR: external
 
 permissions:
@@ -115,8 +115,6 @@ jobs:
 
       - name: Verify the libraries
         run: |
-          cd $GITHUB_WORKSPACE
-          
           echo "Verifying AMD64 library:"
           if [ -f "$BUILD_DIR/lib/amd64/lib${PKG}.so" ]; then
             echo "AMD64 library exists"
@@ -159,8 +157,6 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          cd $GITHUB_WORKSPACE
-          
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           

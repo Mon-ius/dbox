@@ -2,7 +2,7 @@ name: ios
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  BUILD_DIR: $GITHUB_WORKSPACE/native/ios
+  BUILD_DIR: native/ios
   SOURCE_DIR: external
 
 permissions:
@@ -100,7 +100,6 @@ jobs:
       - name: Create Universal Binary
         run: |
           echo "Creating universal binary..."
-          cd $GITHUB_WORKSPACE
           lipo -create \
             $BUILD_DIR/libs/arm64/lib${PKG}.a \
             $BUILD_DIR/libs/x86_64/lib${PKG}.a \
@@ -111,8 +110,7 @@ jobs:
       - name: Create XCFramework
         run: |
           echo "Creating XCFramework..."
-          cd $GITHUB_WORKSPACE
-          
+
           mkdir -p $BUILD_DIR/${PKG_TITLE}Framework-ios-arm64.framework/Headers
           mkdir -p $BUILD_DIR/${PKG_TITLE}Framework-ios-x86_64-simulator.framework/Headers
 
@@ -177,12 +175,10 @@ jobs:
       - name: Create podspec file
         run: |
           echo "Creating podspec file..."
-          cd $BUILD_DIR
-
           GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
           VERSION=${GIT_TAG#v}
           
-          cat > ${PKG}.podspec << EOF
+          cat > $BUILD_DIR/${PKG}.podspec << EOF
           Pod::Spec.new do |s|
             s.name             = '${PKG_TITLE}Framework'
             s.version          = '${VERSION}'
@@ -208,7 +204,6 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          cd $GITHUB_WORKSPACE
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           

@@ -2,7 +2,7 @@ name: macos
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  BUILD_DIR: $GITHUB_WORKSPACE/native/macos
+  BUILD_DIR: native/macos
   SOURCE_DIR: external
 
 permissions:
@@ -111,7 +111,7 @@ jobs:
       - name: Create Universal Dylib
         run: |
           echo "Creating universal dylib..."
-          cd $GITHUB_WORKSPACE
+
           lipo -create \
             $BUILD_DIR/libs/arm64/lib${PKG}.dylib \
             $BUILD_DIR/libs/amd64/lib${PKG}.dylib \
@@ -121,7 +121,6 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          cd $GITHUB_WORKSPACE
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
