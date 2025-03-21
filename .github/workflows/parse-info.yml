@@ -1,0 +1,82 @@
+name: parse-info
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        default: 'pubspec.yaml'
+        required: true
+        type: string
+      target:
+        default: 'linux'
+        required: false
+        type: string
+        description: "Build target (android, ios, linux, macos, windows, web)"
+    outputs:
+      name_full:
+        description: "parsed name"
+        value: ${{ jobs.parse.outputs.name_full }}
+      name_lower:
+        description: "lowercase name"
+        value: ${{ jobs.parse.outputs.name_lower }}
+      version:
+        description: "parsed version"
+        value: ${{ jobs.parse.outputs.version }}
+      release:
+        description: "Platform-specific release path"
+        value: ${{ jobs.parse.outputs.release }}
+
+jobs:
+  parse:
+    runs-on: ubuntu-24.04
+    outputs:
+      name_full: ${{ steps.regex.outputs.name_full }}
+      name_lower: ${{ steps.regex.outputs.name_lower }}
+      version: ${{ steps.regex.outputs.version }}
+      release: ${{ steps.get-release.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: regex
+        run: |
+          name_full=$(sed -n 's/.*name: \([a-zA-Z0-9_-]*\).*/\1/p' $PUBSPEC | head -n1)
+          name_lower=$(echo "$name_full" | tr '[:upper:]' '[:lower:]')
+          version=$(sed -n 's/.*version: \([0-9.]*\).*/\1/p' $PUBSPEC)
+          echo name_full=$name_full >> $GITHUB_OUTPUT
+          echo name_lower=$name_lower >> $GITHUB_OUTPUT
+          echo version=$version >> $GITHUB_OUTPUT
+        name: Parse pubspec.yaml
+        shell: bash
+        env:
+          PUBSPEC: ${{ inputs.path }}
+
+      - id: get-release
+        run: |
+          case $PLATFORM in
+            "macos")
+              release="build/macos/Build/Products/Release/$APP_NAME.app"
+              ;;
+            "ios")
+              release="build/ios/Release-iphoneos/Runner.app"
+              ;;
+            "android")
+              release="build/app/outputs/apk/release/app-release.apk"
+              ;;
+            "linux")
+              release="build/linux/x64/release/bundle"
+              ;;
+            "windows")
+              release="build/windows/x64/runner/Release"
+              ;;
+            "web")
+              release="build/web"
+              ;;
+            *)
+              echo "Error: Unsupported target $PLATFORM"
+              exit 1
+              ;;
+          esac
+          echo release=$release >> $GITHUB_OUTPUT
+        shell: bash
+        env:
+          PLATFORM: ${{ inputs.target }}
+          APP_NAME: ${{ steps.regex.outputs.name_lower }}
