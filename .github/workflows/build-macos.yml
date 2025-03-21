@@ -22,8 +22,17 @@ on:
       - completed
 
 jobs:
+  parse-info:
+    uses: ./.github/workflows/parse-info.yml
+    with:
+      path: 'pubspec.yaml'
+      target: 'macos'
+
   build-macos:
+    needs: parse-info
     runs-on: macos-latest
+    env:
+      PKG: ${{ needs.parse-info.outputs.name_lower }}
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -75,8 +84,8 @@ jobs:
             -buildvcs=false \
             -ldflags="$LDFLAGS" \
             -tags="$TAGS" \
-            -o "$BUILD_DIR/libs/arm64/libdbox.dylib" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/libs/arm64/lib${PKG}.dylib" \
+            ./cmd/${PKG}
 
       - name: Build for macOS amd64 (Intel)
         run: |
@@ -97,50 +106,19 @@ jobs:
             -buildvcs=false \
             -ldflags="$LDFLAGS" \
             -tags="$TAGS" \
-            -o "$BUILD_DIR/libs/amd64/libdbox.dylib" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/libs/amd64/lib${PKG}.dylib" \
+            ./cmd/${PKG}
 
       - name: Create Universal Dylib
         run: |
           echo "Creating universal dylib..."
           cd $GITHUB_WORKSPACE
           lipo -create \
-            $BUILD_DIR/libs/arm64/libdbox.dylib \
-            $BUILD_DIR/libs/amd64/libdbox.dylib \
-            -output $BUILD_DIR/libs/universal/libdbox.dylib
+            $BUILD_DIR/libs/arm64/lib${PKG}.dylib \
+            $BUILD_DIR/libs/amd64/lib${PKG}.dylib \
+            -output $BUILD_DIR/libs/universal/lib${PKG}.dylib
           
-          cp $BUILD_DIR/libs/arm64/libdbox.h $BUILD_DIR/libs/universal/
-
-      # - name: Create podspec file
-      #   run: |
-      #     echo "Creating podspec file..."
-      #     cd $GITHUB_WORKSPACE
-
-      #     GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
-      #     VERSION=${GIT_TAG#v}
-          
-      #     cat > dbox-macos.podspec << EOF
-      #     Pod::Spec.new do |s|
-      #       s.name             = 'DBox-macOS'
-      #       s.version          = '${VERSION}'
-      #       s.summary          = 'DBox library for macOS'
-      #       s.description      = 'A cross-platform library compiled for macOS from Go code.'
-      #       s.homepage         = 'https://github.com/${GITHUB_REPOSITORY}'
-      #       s.license          = { :type => 'GNU General Public License v3.0', :file => 'LICENSE' }
-      #       s.author           = { 'M0nius' => 'm0niusplus@gmail.com' }
-      #       s.source           = { :git => 'https://github.com/${GITHUB_REPOSITORY}.git', :tag => s.version.to_s }
-            
-      #       s.osx.deployment_target = '10.13'
-      #       s.swift_version = '5.0'
-            
-      #       s.vendored_libraries = 'platforms/macos/libs/universal/libdbox.dylib'
-      #       s.source_files = 'platforms/macos/libs/universal/libdbox.h'
-            
-      #       s.requires_arc = true
-      #     end
-      #     EOF
-          
-      #     echo "Created podspec file for version ${VERSION}"
+          cp $BUILD_DIR/libs/arm64/lib${PKG}.h $BUILD_DIR/libs/universal/
 
       - name: Commit and push changes
         run: |
@@ -152,7 +130,7 @@ jobs:
           git pull --rebase
           git stash pop || true
 
-          # git add $BUILD_DIR/libs dbox-macos.podspec
+          # git add $BUILD_DIR/libs ${PKG}-macos.podspec
           git add $BUILD_DIR/libs
           
           if git diff --staged --quiet; then

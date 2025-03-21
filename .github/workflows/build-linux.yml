@@ -22,8 +22,17 @@ on:
       - completed
 
 jobs:
+  parse-info:
+    uses: ./.github/workflows/parse-info.yml
+    with:
+      path: 'pubspec.yaml'
+      target: 'linux'
+
   build-linux:
+    needs: parse-info
     runs-on: ubuntu-latest
+    env:
+      PKG: ${{ needs.parse-info.outputs.name_lower }}
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -66,8 +75,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$BUILD_DIR/lib/amd64/libdbox.so" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/lib/amd64/lib${PKG}.so" \
+            ./cmd/${PKG}
 
       - name: Build for Linux ARM64
         run: |
@@ -78,8 +87,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$BUILD_DIR/lib/arm64/libdbox.so" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/lib/arm64/lib${PKG}.so" \
+            ./cmd/${PKG}
 
       - name: Build for Linux 386
         run: |
@@ -90,8 +99,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$BUILD_DIR/lib/386/libdbox.so" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/lib/386/lib${PKG}.so" \
+            ./cmd/${PKG}
 
       - name: Build for Linux ARMv7
         run: |
@@ -102,48 +111,48 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$BUILD_DIR/lib/armv7/libdbox.so" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/lib/armv7/lib${PKG}.so" \
+            ./cmd/${PKG}
 
       - name: Verify the libraries
         run: |
           cd $GITHUB_WORKSPACE
           
           echo "Verifying AMD64 library:"
-          if [ -f "$BUILD_DIR/lib/amd64/libdbox.so" ]; then
+          if [ -f "$BUILD_DIR/lib/amd64/lib${PKG}.so" ]; then
             echo "AMD64 library exists"
-            ls -la $BUILD_DIR/lib/amd64/libdbox.so
-            file $BUILD_DIR/lib/amd64/libdbox.so
+            ls -la $BUILD_DIR/lib/amd64/lib${PKG}.so
+            file $BUILD_DIR/lib/amd64/lib${PKG}.so
           else
             echo "ERROR: AMD64 library not found"
             exit 1
           fi
           
           echo "Verifying ARM64 library:"
-          if [ -f "$BUILD_DIR/lib/arm64/libdbox.so" ]; then
+          if [ -f "$BUILD_DIR/lib/arm64/lib${PKG}.so" ]; then
             echo "ARM64 library exists"
-            ls -la $BUILD_DIR/lib/arm64/libdbox.so
-            file $BUILD_DIR/lib/arm64/libdbox.so
+            ls -la $BUILD_DIR/lib/arm64/lib${PKG}.so
+            file $BUILD_DIR/lib/arm64/lib${PKG}.so
           else
             echo "ERROR: ARM64 library not found"
             exit 1
           fi
           
           echo "Verifying 386 library:"
-          if [ -f "$BUILD_DIR/lib/386/libdbox.so" ]; then
+          if [ -f "$BUILD_DIR/lib/386/lib${PKG}.so" ]; then
             echo "386 library exists"
-            ls -la $BUILD_DIR/lib/386/libdbox.so
-            file $BUILD_DIR/lib/386/libdbox.so
+            ls -la $BUILD_DIR/lib/386/lib${PKG}.so
+            file $BUILD_DIR/lib/386/lib${PKG}.so
           else
             echo "ERROR: 386 library not found"
             exit 1
           fi
           
           echo "Verifying ARMv7 library:"
-          if [ -f "$BUILD_DIR/lib/armv7/libdbox.so" ]; then
+          if [ -f "$BUILD_DIR/lib/armv7/lib${PKG}.so" ]; then
             echo "ARMv7 library exists"
-            ls -la $BUILD_DIR/lib/armv7/libdbox.so
-            file $BUILD_DIR/lib/armv7/libdbox.so
+            ls -la $BUILD_DIR/lib/armv7/lib${PKG}.so
+            file $BUILD_DIR/lib/armv7/lib${PKG}.so
           else
             echo "ERROR: ARMv7 library not found"
             exit 1

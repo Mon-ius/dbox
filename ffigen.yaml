@@ -1,4 +1,4 @@
-name: dbox
+name: DBox
 output: 'lib/src/dbox_bindings.dart'
 description: CGO bindings
 language: 'c'

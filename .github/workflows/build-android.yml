@@ -22,8 +22,17 @@ on:
       - completed
 
 jobs:
+  parse-info:
+    uses: ./.github/workflows/parse-info.yml
+    with:
+      path: 'pubspec.yaml'
+      target: 'android'
+
   build-android:
+    needs: parse-info
     runs-on: ubuntu-latest
+    env:
+      PKG: ${{ needs.parse-info.outputs.name_lower }}
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -77,8 +86,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$BUILD_DIR/src/main/jniLibs/arm64-v8a/libdbox.so" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/src/main/jniLibs/arm64-v8a/lib${PKG}.so" \
+            ./cmd/${PKG}
 
       - name: Build for armeabi-v7a
         run: |
@@ -90,8 +99,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$BUILD_DIR/src/main/jniLibs/armeabi-v7a/libdbox.so" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/src/main/jniLibs/armeabi-v7a/lib${PKG}.so" \
+            ./cmd/${PKG}
 
       - name: Build for x86_64
         run: |
@@ -103,8 +112,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$BUILD_DIR/src/main/jniLibs/x86_64/libdbox.so" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/src/main/jniLibs/x86_64/lib${PKG}.so" \
+            ./cmd/${PKG}
 
       - name: Build for x86
         run: |
@@ -116,8 +125,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug" \
-            -o "$BUILD_DIR/src/main/jniLibs/x86/libdbox.so" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/src/main/jniLibs/x86/lib${PKG}.so" \
+            ./cmd/${PKG}
 
       - name: Commit and push changes
         run: |

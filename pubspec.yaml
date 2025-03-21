@@ -1,6 +1,6 @@
-name: dbox
+name: DBox
 description: "Dart wrapped network library via Golang FFI"
-version: 0.0.2
+version: 0.0.3
 
 platforms:
   android:
@@ -17,6 +17,6 @@ dependencies:
   ffi: ^2.1.4
 
 dev_dependencies:
-  ffigen: ^17.0.0
+  ffigen: ^18.0.0
   lints: ^5.0.0
   test: ^1.24.0

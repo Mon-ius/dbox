@@ -22,8 +22,18 @@ on:
       - completed
 
 jobs:
+  parse-info:
+    uses: ./.github/workflows/parse-info.yml
+    with:
+      path: 'pubspec.yaml'
+      target: 'ios'
+
   build-ios:
+    needs: parse-info
     runs-on: macos-latest
+    env:
+      PKG: ${{ needs.parse-info.outputs.name_lower }}
+      PKG_TITLE: ${{ needs.parse-info.outputs.name_full }}
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -69,8 +79,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug ios" \
-            -o "$BUILD_DIR/libs/arm64/libdbox.a" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/libs/arm64/lib${PKG}.a" \
+            ./cmd/${PKG}
 
       - name: Build for iOS x86_64 (simulator)
         run: |
@@ -85,47 +95,47 @@ jobs:
             -trimpath \
             -ldflags="-s -w -buildid=" \
             -tags="with_debug ios" \
-            -o "$BUILD_DIR/libs/x86_64/libdbox.a" \
-            ./cmd/dbox
+            -o "$BUILD_DIR/libs/x86_64/lib${PKG}.a" \
+            ./cmd/${PKG}
 
       - name: Create Universal Binary
         run: |
           echo "Creating universal binary..."
           cd $GITHUB_WORKSPACE
           lipo -create \
-            $BUILD_DIR/libs/arm64/libdbox.a \
-            $BUILD_DIR/libs/x86_64/libdbox.a \
-            -output $BUILD_DIR/libs/universal/libdbox.a
+            $BUILD_DIR/libs/arm64/lib${PKG}.a \
+            $BUILD_DIR/libs/x86_64/lib${PKG}.a \
+            -output $BUILD_DIR/libs/universal/lib${PKG}.a
 
-          cp $BUILD_DIR/libs/arm64/libdbox.h $BUILD_DIR/libs/universal/
+          cp $BUILD_DIR/libs/arm64/lib${PKG}.h $BUILD_DIR/libs/universal/
           
       - name: Create XCFramework
         run: |
           echo "Creating XCFramework..."
           cd $GITHUB_WORKSPACE
           
-          mkdir -p $BUILD_DIR/DBoxFramework-ios-arm64.framework/Headers
-          mkdir -p $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/Headers
+          mkdir -p $BUILD_DIR/${PKG_TITLE}Framework-ios-arm64.framework/Headers
+          mkdir -p $BUILD_DIR/${PKG_TITLE}Framework-ios-x86_64-simulator.framework/Headers
 
-          cp $BUILD_DIR/libs/arm64/libdbox.h $BUILD_DIR/DBoxFramework-ios-arm64.framework/Headers/
-          cp $BUILD_DIR/libs/arm64/libdbox.a $BUILD_DIR/DBoxFramework-ios-arm64.framework/DBoxFramework-ios-arm64
-          chmod +x $BUILD_DIR/DBoxFramework-ios-arm64.framework/DBoxFramework-ios-arm64
+          cp $BUILD_DIR/libs/arm64/lib${PKG}.h $BUILD_DIR/${PKG_TITLE}Framework-ios-arm64.framework/Headers/
+          cp $BUILD_DIR/libs/arm64/lib${PKG}.a $BUILD_DIR/${PKG_TITLE}Framework-ios-arm64.framework/${PKG_TITLE}Framework-ios-arm64
+          chmod +x $BUILD_DIR/${PKG_TITLE}Framework-ios-arm64.framework/${PKG_TITLE}Framework-ios-arm64
 
-          cp $BUILD_DIR/libs/x86_64/libdbox.h $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/Headers/
-          cp $BUILD_DIR/libs/x86_64/libdbox.a $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework-ios-x86_64-simulator
-          chmod +x $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/DBoxFramework-ios-x86_64-simulator
+          cp $BUILD_DIR/libs/x86_64/lib${PKG}.h $BUILD_DIR/${PKG_TITLE}Framework-ios-x86_64-simulator.framework/Headers/
+          cp $BUILD_DIR/libs/x86_64/lib${PKG}.a $BUILD_DIR/${PKG_TITLE}Framework-ios-x86_64-simulator.framework/${PKG_TITLE}Framework-ios-x86_64-simulator
+          chmod +x $BUILD_DIR/${PKG_TITLE}Framework-ios-x86_64-simulator.framework/${PKG_TITLE}Framework-ios-x86_64-simulator
           
-          cat > $BUILD_DIR/DBoxFramework-ios-arm64.framework/Info.plist << EOF
+          cat > $BUILD_DIR/${PKG_TITLE}Framework-ios-arm64.framework/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
-              <string>DBoxFramework-ios-arm64</string>
+              <string>${PKG_TITLE}Framework-ios-arm64</string>
               <key>CFBundleIdentifier</key>
-              <string>com.mon-ius.DBoxFramework</string>
+              <string>com.mon-ius.${PKG_TITLE}Framework</string>
               <key>CFBundleName</key>
-              <string>DBoxFramework</string>
+              <string>${PKG_TITLE}Framework</string>
               <key>CFBundlePackageType</key>
               <string>FMWK</string>
               <key>CFBundleVersion</key>
@@ -136,17 +146,17 @@ jobs:
           </plist>
           EOF
           
-          cat > $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/Info.plist << EOF
+          cat > $BUILD_DIR/${PKG_TITLE}Framework-ios-x86_64-simulator.framework/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
-              <string>DBoxFramework-ios-x86_64-simulator</string>
+              <string>${PKG_TITLE}Framework-ios-x86_64-simulator</string>
               <key>CFBundleIdentifier</key>
-              <string>com.mon-ius.DBoxFramework</string>
+              <string>com.mon-ius.${PKG_TITLE}Framework</string>
               <key>CFBundleName</key>
-              <string>DBoxFramework</string>
+              <string>${PKG_TITLE}Framework</string>
               <key>CFBundlePackageType</key>
               <string>FMWK</string>
               <key>CFBundleVersion</key>
@@ -157,27 +167,27 @@ jobs:
           </plist>
           EOF
 
-          ls -la $BUILD_DIR/DBoxFramework-ios-arm64.framework/
-          ls -la $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework/
+          ls -la $BUILD_DIR/${PKG_TITLE}Framework-ios-arm64.framework/
+          ls -la $BUILD_DIR/${PKG_TITLE}Framework-ios-x86_64-simulator.framework/
           
           xcodebuild -create-xcframework \
-            -framework $BUILD_DIR/DBoxFramework-ios-arm64.framework \
-            -framework $BUILD_DIR/DBoxFramework-ios-x86_64-simulator.framework \
-            -output $BUILD_DIR/libdbox.xcframework
+            -framework $BUILD_DIR/${PKG_TITLE}Framework-ios-arm64.framework \
+            -framework $BUILD_DIR/${PKG_TITLE}Framework-ios-x86_64-simulator.framework \
+            -output $BUILD_DIR/lib${PKG}.xcframework
 
       - name: Create podspec file
         run: |
           echo "Creating podspec file..."
-          cd $GITHUB_WORKSPACE
+          cd $$BUILD_DIR
 
           GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
           VERSION=${GIT_TAG#v}
           
-          cat > dbox.podspec << EOF
+          cat > ${PKG}.podspec << EOF
           Pod::Spec.new do |s|
-            s.name             = 'DBoxFramework'
+            s.name             = '${PKG_TITLE}Framework'
             s.version          = '${VERSION}'
-            s.summary          = 'DBox framework for iOS'
+            s.summary          = '${PKG_TITLE} framework for iOS'
             s.description      = 'A cross-platform library compiled for iOS from Go code.'
             s.homepage         = 'https://github.com/${GITHUB_REPOSITORY}'
             s.license          = { :type => 'GNU General Public License v3.0', :file => 'LICENSE' }
@@ -187,7 +197,7 @@ jobs:
             s.ios.deployment_target = '13.0'
             s.swift_version = '5.0'
             
-            s.vendored_frameworks = 'platforms/ios/libdbox.xcframework'
+            s.vendored_frameworks = 'platforms/ios/lib${PKG}.xcframework'
             
             s.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64' }
             s.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64' }
@@ -206,7 +216,7 @@ jobs:
           git stash -u
           git pull --rebase
           git stash pop || true
-          git add $BUILD_DIR/libs $BUILD_DIR/libdbox.xcframework dbox.podspec
+          git add $BUILD_DIR/libs $BUILD_DIR/lib${PKG}.xcframework $BUILD_DIR/${PKG}.podspec
           
           if git diff --staged --quiet; then
             echo "No changes detected in iOS libraries. Skipping commit."
