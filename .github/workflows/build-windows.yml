@@ -57,9 +57,9 @@ jobs:
         shell: pwsh
 
       - name: Build for Windows AMD64
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           Write-Output "Building for Windows AMD64..."
-          Set-Location $env:WORKING_DIR
           $env:GOOS = "windows"
           $env:GOARCH = "amd64"
           $env:CGO_ENABLED = "1"
@@ -78,9 +78,9 @@ jobs:
           platform: x86
 
       - name: Build for Windows 386
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           Write-Output "Building for Windows 386..."
-          Set-Location $env:WORKING_DIR
           $env:GOOS = "windows"
           $env:GOARCH = "386"
           $env:CGO_ENABLED = "1"
