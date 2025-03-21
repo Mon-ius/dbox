@@ -1,0 +1,44 @@
+name: ci
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  PUBSPEC: "pubspec.yaml"
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "master"
+    paths:
+      - ".github/workflows/ci.yml"
+      - "pubspec.yaml"
+
+jobs:
+  pre:
+    runs-on: ubuntu-24.04
+    outputs:
+      pubspec: ${{ env.PUBSPEC }}
+    steps:
+      - run: echo "Bypass GitHub Action Restriction"
+  ready:
+    needs:
+      - pre
+    uses: ./.github/workflows/parse-info.yml
+    with:
+      path: ${{ needs.pre.outputs.pubspec }}
+  tag:
+    needs:
+      - ready
+    uses: ./.github/workflows/create-tag.yml
+    with:
+      version: ${{ needs.ready.outputs.version }}
+  release:
+    needs:
+      - tag
+    uses: ./.github/workflows/create-release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+      note: "add release for ${{ needs.tag.outputs.tag }}"

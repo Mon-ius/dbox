@@ -17,7 +17,7 @@ on:
       - ".github/workflows/build-macos.yml"
   workflow_dispatch:
   workflow_run:
-    workflows: ["listen"]
+    workflows: ["listen", "ci"]
     types:
       - completed
 
