@@ -35,7 +35,7 @@ jobs:
       version: ${{ steps.regex.outputs.version }}
       release: ${{ steps.get-release.outputs.release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: regex
         run: |
           name_full=$(sed -n 's/.*name: \([a-zA-Z0-9_-]*\).*/\1/p' $PUBSPEC | head -n1)
