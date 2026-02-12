@@ -91,13 +91,13 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern __declspec(dllexport) void PrintDebug(char* message);
-extern __declspec(dllexport) void FreeString(char* str);
-extern __declspec(dllexport) int Add(int a, int b);
-extern __declspec(dllexport) int Multiply(int a, int b);
-extern __declspec(dllexport) char* HelloWorld(void);
-extern __declspec(dllexport) char* Base64Decode(char* encodedStr);
-extern __declspec(dllexport) void enforce_binding(void);
+extern void PrintDebug(char* message);
+extern void FreeString(char* str);
+extern int Add(int a, int b);
+extern int Multiply(int a, int b);
+extern char* HelloWorld(void);
+extern char* Base64Decode(char* encodedStr);
+extern void enforce_binding(void);
 
 #ifdef __cplusplus
 }
