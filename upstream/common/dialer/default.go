@@ -88,7 +88,7 @@ func NewDefault(ctx context.Context, options option.DialerOptions) (*DefaultDial
 
 	if networkManager != nil {
 		defaultOptions := networkManager.DefaultOptions()
-		if defaultOptions.BindInterface != "" {
+		if defaultOptions.BindInterface != "" && !disableDefaultBind {
 			bindFunc := control.BindToInterface(networkManager.InterfaceFinder(), defaultOptions.BindInterface, -1)
 			dialer.Control = control.Append(dialer.Control, bindFunc)
 			listener.Control = control.Append(listener.Control, bindFunc)
@@ -142,8 +142,7 @@ func NewDefault(ctx context.Context, options option.DialerOptions) (*DefaultDial
 		dialer.Timeout = C.TCPConnectTimeout
 	}
 	// TODO: Add an option to customize the keep alive period
-	dialer.KeepAlive = C.TCPKeepAliveInitial
-	dialer.Control = control.Append(dialer.Control, control.SetKeepAlivePeriod(C.TCPKeepAliveInitial, C.TCPKeepAliveInterval))
+	setKeepAliveConfig(&dialer, C.TCPKeepAliveInitial, C.TCPKeepAliveInterval)
 	var udpFragment bool
 	if options.UDPFragment != nil {
 		udpFragment = *options.UDPFragment
